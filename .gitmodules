@@ -1,0 +1,7 @@
+[submodule "capsule-manager-tonic/secretflow_apis"]
+	path = capsule-manager-tonic/secretflow_apis
+	url = https://github.com/secretflow/secure-data-capsule-apis.git
+[submodule "second_party/remote-attestation/unified-attestation"]
+	path = second_party/remote-attestation/unified-attestation
+	url = https://github.com/secretflow/jinzhao-attest.git
+	branch = bazel_build

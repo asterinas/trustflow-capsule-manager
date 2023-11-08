@@ -1,0 +1,16 @@
+
+# This file defines the Rust style for automatic reformatting.
+# See also https://rust-lang.github.io/rustfmt
+
+# Rust language edition to be used by the parser.
+edition = "2021"
+
+# Version of the formatting rules to use.
+version = "Two"
+
+# Line endings will be converted to \n.
+newline_style = "Unix"
+
+wrap_comments = true
+
+imports_granularity = "Module"

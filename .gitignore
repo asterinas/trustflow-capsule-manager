@@ -1,0 +1,6 @@
+target
+Cargo.lock
+.vscode
+libgeneration.so
+libverification.so
+log
