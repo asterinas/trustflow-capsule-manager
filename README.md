@@ -21,7 +21,7 @@ there are two modes in the CapsuleManager: simulation mode, production mode
 ```bash
 git clone xxx
 git submodule init
-git submodule update --init --remote --recursive
+git submodule update --init --recursive
 ```
 
 until now, we pull code from github to the directory "capsule-manager-tonic/secretflow_apis/" and "second_party/unified-attestation/"
