@@ -43,7 +43,7 @@ cd occlum_release
 # if you want to use the mTLS, you can refer to the mTLS part
 # run service
 # if the port is occupied, you can modify the field port in the config.yaml
-occlum run /bin/capsule_manager --config_path /host/config.yaml
+occlum run /bin/capsule_manager --config_path /host/config.yaml --enable-tls=false
 ```
 
 ### Production Mode(default mode)
