@@ -20,7 +20,7 @@ fn main() {
     let compile_path = format!("{}/compile.sh", _root.to_str().unwrap());
     Command::new("bash")
         .arg(compile_path)
-        .output()
+        .status()
         .expect("failed to execute compile");
 
     if cfg!(feature = "ua_gen") {

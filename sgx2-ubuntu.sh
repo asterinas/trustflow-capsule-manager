@@ -15,7 +15,7 @@
 #
 #!/bin/bash
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-image=secretflow/capsule-manager-ci:0.1.0b
+image=secretflow/capsule-manager-ci:0.1.1b
 DOCKER=docker
 project=capsule-manager-dev-ubuntu
 if [[ $1 == 'enter' ]]; then

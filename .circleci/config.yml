@@ -28,23 +28,13 @@ jobs:
     # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
-      - image: registry.hub.docker.com/secretflow/ubuntu-base-ci:0.3
+      - image: secretflow/capsule-manager-ci:0.1.1b
     resource_class: 2xlarge+
     shell: /bin/bash --login -eo pipefail
     # Add steps to the job
     # See: https://circleci.com/docs/2.0/configuration-reference/#steps
     steps:
       - checkout
-      - run:
-          name: "Install cargo and bazelisk"
-          command: |
-            set -ex
-            curl https://sh.rustup.rs -sSf | bash -s -- -y
-            source "$HOME/.cargo/env"
-            apt update && apt upgrade -y
-            apt install -y protobuf-compiler libprotobuf-dev
-            wget https://github.com/bazelbuild/bazelisk/releases/download/v1.18.0/bazelisk-linux-amd64 \
-                && chmod 777 bazelisk-linux-amd64 && mv bazelisk-linux-amd64 /usr/local/bin/bazelisk
       - run:
           name: "build and test"
           command: |

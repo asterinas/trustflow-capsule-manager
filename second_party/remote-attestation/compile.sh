@@ -14,15 +14,12 @@
 # limitations under the License.
 #
 #!/bin/bash
-
+set -ex
 workdir=$(cd $(dirname $0); pwd)
 CRTDIR=$(pwd)
 cd $workdir/unified-attestation/
-git submodule init
-git submodule update --init
-git submodule update --remote --recursive
-bazelisk build //:libgeneration.so
-bazelisk build //:libverification.so
+bazelisk build --jobs 16 //:libgeneration.so
+bazelisk build --jobs 16 //:libverification.so
 cd ..
 rm -rf c/lib/
 mkdir -p c/lib/
