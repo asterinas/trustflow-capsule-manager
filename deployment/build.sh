@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-set -ex
+set -e
 
 GREEN="\033[32m"
+BLUE='\033[1;34m'
 NO_COLOR="\033[0m"
+NC='\033[0m'
 
 # cd work dir
 SCRIPT=$(readlink -f "$0")
