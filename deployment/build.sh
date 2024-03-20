@@ -58,6 +58,7 @@ cp -r ../capsule-manager/resources resources
 
 if [ -z $KEY_PATH ]; then
     echo "KEY_PATH not found"
+    exit
 else
     # absolute path
     if [[ $KEY_PATH == /* ]]; then
