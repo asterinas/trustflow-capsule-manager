@@ -41,7 +41,7 @@ bash sgx2-ubuntu.sh enter
 # in the config.yaml(template is in `deployment/conf/config.yaml`)
 # enable tls(often skip)
 # if you want to use the mTLS, you can refer to the mTLS part
-LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/second_party/remote-attestation/c/lib\ 
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/second_party/remote-attestation/c/lib \ 
     cargo run --bin capsule_manager --  --enable-tls=false --port 8888
 ```
 
