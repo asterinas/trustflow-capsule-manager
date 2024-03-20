@@ -18,10 +18,14 @@ fn main() {
     // load dynamic library
     let _root = std::env::current_dir().unwrap();
     let compile_path = format!("{}/compile.sh", _root.to_str().unwrap());
-    Command::new("bash")
+    let status = Command::new("bash")
         .arg(compile_path)
         .status()
         .expect("failed to execute compile");
+    
+    if !status.success() {
+        panic!("failed to compile unified attestation");
+    }
 
     if cfg!(feature = "ua_gen") {
         println!("cargo:rustc-link-lib=dylib=generation");

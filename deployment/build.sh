@@ -25,22 +25,8 @@ SCRIPT=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT")
 WORK_SPACE_DIR=$SCRIPT_DIR/..
 
-MODE_LIST=("PROD" "SIM")
-MODE="${MODE:-PROD}"
-if ! echo "${MODE_LIST[@]}" | grep -wq "$MODE"; then
-    echo -e "$MODE is not in the list: ${BLUE}${MODE_LIST[@]}${NC}."
-    exit -1
-fi
-
-echo -e "${BLUE}build mode:${NC} $MODE"
-
 pushd $WORK_SPACE_DIR
-
-if [ $MODE == "SIM" ]; then
-    CARGO_TARGET_DIR=target cargo build --release
-else
-    CARGO_TARGET_DIR=target cargo build --features production --release
-fi
+CARGO_TARGET_DIR=target cargo build --features production --release
 
 rm -rf occlum_release
 mkdir occlum_release
@@ -69,12 +55,6 @@ if [ ! -d "../capsule-manager/resources" ]; then
     mkdir ../capsule-manager/resources
 fi
 cp -r ../capsule-manager/resources resources
-
-if [ $MODE == "SIM" ]; then
-    openssl genrsa -3 -out  /opt/occlum/etc/template/Enclave.pem  3072
-    occlum build --sgx-mode SIM
-    exit 0
-fi
 
 if [ -z $KEY_PATH ]; then
     echo "KEY_PATH not found"

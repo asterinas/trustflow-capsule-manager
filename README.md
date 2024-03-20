@@ -21,7 +21,6 @@ there are two modes in the CapsuleManager: simulation mode, production mode
 
 ```bash
 git clone xxx
-git submodule init
 git submodule update --init --recursive
 ```
 
@@ -36,15 +35,14 @@ Remote Attestation is not enabled for this mode
 bash sgx2-ubuntu.sh
 # enter docker image
 bash sgx2-ubuntu.sh enter
-# build exe and occlum
-MODE=SIM bash deployment/build.sh
-#
-cd occlum_release
+
+# run service
+# if the port is occupied, you can modify the field port
+# in the config.yaml(template is in `deployment/conf/config.yaml`)
 # enable tls(often skip)
 # if you want to use the mTLS, you can refer to the mTLS part
-# run service
-# if the port is occupied, you can modify the field port in the config.yaml
-occlum run /bin/capsule_manager --config_path /host/config.yaml --enable-tls=false
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/second_party/remote-attestation/c/lib\ 
+    cargo run --bin capsule_manager --  --enable-tls=false --port 8888
 ```
 
 ### Production Mode(default mode)
