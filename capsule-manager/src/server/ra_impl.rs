@@ -16,44 +16,43 @@ use super::CapsuleManagerImpl;
 use crate::server::constant::SEPARATOR;
 use ::capsule_manager::errno;
 use ::capsule_manager::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
-use ::capsule_manager::remote_attestation::unified_attestation_wrapper::runified_attestation_generate_auth_report;
 use ::capsule_manager::utils::tool::sha256;
-use capsule_manager_tonic::secretflowapis::v2::sdc::capsule_manager::{
-    GetRaCertRequest, GetRaCertResponse,
-};
-use capsule_manager_tonic::secretflowapis::v2::sdc::{
-    UnifiedAttestationReport, UnifiedAttestationReportParams,
-};
-use capsule_manager_tonic::secretflowapis::v2::{Code, Status};
 use hex::encode_upper;
 use log::debug;
+use sdc_apis::secretflowapis::v2::sdc::capsule_manager::{GetRaCertRequest, GetRaCertResponse};
+use sdc_apis::secretflowapis::v2::sdc::{
+    UnifiedAttestationGenerationParams, UnifiedAttestationReport, UnifiedAttestationReportParams,
+};
+use sdc_apis::secretflowapis::v2::{Code, Status};
 
 impl CapsuleManagerImpl {
     pub async fn get_ra_cert_impl(
         &self,
         request: &GetRaCertRequest,
     ) -> AuthResult<GetRaCertResponse> {
-        // the fixed data
-        let tee_identity: &str = "1";
-        let hex_report_type = "Passport".to_string();
         // generate one report for nonce
-
         let attestation_report: Option<UnifiedAttestationReport> = match self.mode.as_str() {
             // get RA report
             "production" => {
                 let data = [&self.kek_cert, request.nonce.as_bytes()].join(SEPARATOR.as_bytes());
+
                 // fill report params
-                let report_params = UnifiedAttestationReportParams {
-                    str_report_identity: "".to_owned(),
-                    hex_user_data: encode_upper(sha256(&data)),
-                    json_nested_reports: "".to_owned(),
-                    hex_spid: "".to_owned(),
+                let report_params = UnifiedAttestationGenerationParams {
+                    // tee instance id: unused field, filled with empty string
+                    tee_identity: "".to_owned(),
+                    // TODO: add report type in protobuf
+                    report_type: "Passport".to_owned(),
+                    report_hex_nonce: "".to_owned(),
+                    report_params: Some(UnifiedAttestationReportParams {
+                        str_report_identity: "".to_owned(),
+                        hex_user_data: encode_upper(sha256(&data)),
+                        json_nested_reports: "".to_owned(),
+                        hex_spid: "".to_owned(),
+                        pem_public_key: "".to_owned(),
+                    }),
                 };
 
-                let report_json = runified_attestation_generate_auth_report(
-                    tee_identity,
-                    hex_report_type.as_str(),
-                    "",
+                let report_json = trustedflow_attestation_rs::generate_attestation_report(
                     serde_json::to_string(&report_params)
                         .map_err(|e| {
                             errno!(

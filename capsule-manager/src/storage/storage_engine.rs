@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::error::errors::AuthResult;
-use capsule_manager_tonic::secretflowapis::v2::sdc::capsule_manager::*;
+use crate::proto;
 use std::fmt::Debug;
 use tonic::async_trait;
 
@@ -23,13 +23,13 @@ pub trait StorageEngine: Send + Sync + Debug {
         &self,
         owner_party_id: &str,
         scope: &str,
-        policy: &Policy,
+        policy: &proto::Policy,
     ) -> AuthResult<()>;
 
     async fn store_data_keys(
         &self,
         owner_party_id: &str,
-        data_keys: &Vec<DataKey>,
+        data_keys: &Vec<proto::DataKey>,
     ) -> AuthResult<()>;
 
     async fn store_data_key(
@@ -48,7 +48,7 @@ pub trait StorageEngine: Send + Sync + Debug {
         owner_party_id: &str,
         scope: &str,
         data_uuid: &str,
-        rule: &Rule,
+        rule: &proto::Rule,
     ) -> AuthResult<()>;
 
     async fn delete_data_policy(
@@ -68,13 +68,21 @@ pub trait StorageEngine: Send + Sync + Debug {
 
     async fn store_public_key(&self, owner_party_id: &str, public_key: &str) -> AuthResult<()>;
 
-    async fn get_data_keys(&self, resource_uris: &Vec<&str>) -> AuthResult<Vec<DataKey>>;
+    async fn get_data_keys(&self, resource_uris: &Vec<&str>) -> AuthResult<Vec<proto::DataKey>>;
 
     async fn get_data_party(&self, resource_uri: &str) -> AuthResult<String>;
 
-    async fn get_data_policys(&self, owner_party_id: &str, scope: &str) -> AuthResult<Vec<Policy>>;
+    async fn get_data_policys(
+        &self,
+        owner_party_id: &str,
+        scope: &str,
+    ) -> AuthResult<Vec<proto::Policy>>;
 
-    async fn get_data_policy_by_id(&self, data_uuid: &str, scope: &str) -> AuthResult<Policy>;
+    async fn get_data_policy_by_id(
+        &self,
+        data_uuid: &str,
+        scope: &str,
+    ) -> AuthResult<proto::Policy>;
 
     async fn get_policy_party_by_id(&self, data_uuid: &str, scope: &str) -> AuthResult<String>;
 

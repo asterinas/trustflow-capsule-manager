@@ -19,7 +19,6 @@ mod ra_impl;
 
 use self::constant::RSA_BIT_LEN;
 use crate::utils::jwt::{jwe, jws};
-use crate::utils::scheme::AsymmetricScheme;
 use capsule_manager::core::policy_enforcer::PolicyEnforcer;
 use capsule_manager::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
 use capsule_manager::storage::in_memory_storage::InMemoryStorage;
@@ -31,11 +30,13 @@ use capsule_manager::utils::jwt::jwe::{Jwe, RegisteredHeader};
 use capsule_manager::utils::tool::gen_party_id;
 use capsule_manager::utils::type_convert::from;
 use capsule_manager::{cm_assert, errno, return_errno};
-use capsule_manager_tonic::secretflowapis::v2::sdc::capsule_manager::*;
-use capsule_manager_tonic::secretflowapis::v2::{Code, Status};
-use log::debug;
+use log::{debug, info};
 use openssl::rsa::Rsa;
-use std::str::FromStr;
+use sdc_apis::secretflowapis::v2::sdc::capsule_manager::*;
+use sdc_apis::secretflowapis::v2::sdc::{
+    UnifiedAttestationGenerationParams, UnifiedAttestationReportParams,
+};
+use sdc_apis::secretflowapis::v2::{Code, Status};
 use tonic::{Request, Response};
 
 fn get_request<T: prost::Message + std::default::Default + for<'a> serde::Deserialize<'a>>(
@@ -120,8 +121,6 @@ pub struct CapsuleManagerImpl {
     kek_cert: Vec<u8>,
     // root private key
     kek_pri: Vec<u8>,
-    // public-private key algorithm: SM2/RSA
-    scheme: AsymmetricScheme,
     // data storage client
     storage_engine: std::sync::Arc<dyn StorageEngine>,
     // run mode for authmanager
@@ -158,7 +157,6 @@ impl Default for CapsuleManagerImpl {
         Self {
             kek_cert: cert_pem,
             kek_pri: private_key,
-            scheme: AsymmetricScheme::from_str("RSA").unwrap(),
             storage_engine: storage_engine.clone(),
             mode: "simulation".to_owned(),
             policy_enforcer: PolicyEnforcer::new(),
@@ -166,9 +164,49 @@ impl Default for CapsuleManagerImpl {
     }
 }
 
+/// At startup, verify that the remote attestation
+/// report can be generated normally.
+fn launch_check() -> AuthResult<()> {
+    // fill report params
+    let report_params = UnifiedAttestationGenerationParams {
+        // tee instance id: unused field, filled with empty string
+        tee_identity: "".to_owned(),
+        report_type: "Passport".to_owned(),
+        report_hex_nonce: "".to_owned(),
+        report_params: Some(UnifiedAttestationReportParams {
+            str_report_identity: "".to_owned(),
+            hex_user_data: "".to_owned(),
+            json_nested_reports: "".to_owned(),
+            hex_spid: "".to_owned(),
+            pem_public_key: "".to_owned(),
+        }),
+    };
+
+    trustedflow_attestation_rs::generate_attestation_report(
+        serde_json::to_string(&report_params)
+            .map_err(|e| {
+                errno!(
+                    ErrorCode::InternalErr,
+                    "report_params {:?} to json err: {:?}",
+                    &report_params,
+                    e
+                )
+            })?
+            .as_str(),
+    )
+    .map_err(|e| {
+        errno!(
+            ErrorCode::InternalErr,
+            "runified_attestation_generate_auth_report err: {:?}",
+            e
+        )
+    })?;
+    info!(target: "capsule_manager_log", "generate_attestation_report success.");
+    return Ok(());
+}
+
 impl CapsuleManagerImpl {
     pub fn new(
-        scheme: AsymmetricScheme,
         storage_engine: std::sync::Arc<dyn StorageEngine>,
         mode: &str,
     ) -> Result<Self, Error> {
@@ -194,12 +232,15 @@ impl CapsuleManagerImpl {
             mode
         );
 
+        if mode == "production" {
+            launch_check()?;
+        }
+
         debug!(target: "capsule_manager_log", "cert:\n {:?}", String::from_utf8(cert_pem.clone()));
 
         Ok(Self {
             kek_cert: cert_pem,
             kek_pri: private_key,
-            scheme,
             storage_engine: storage_engine.clone(),
             mode: mode.to_owned(),
             policy_enforcer: PolicyEnforcer::new(),
