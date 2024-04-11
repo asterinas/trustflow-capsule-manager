@@ -1,4 +1,5 @@
 # CapsuleManager
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/secretflow/capsule-manager/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/secretflow/capsule-manager/tree/main)
 
 CapsuleManager is an Authorization Management Service, which is designed to manage metadata of user data and authorization information.
 
