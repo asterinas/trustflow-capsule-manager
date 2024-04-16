@@ -15,8 +15,8 @@
 use super::storage_engine::StorageEngine;
 use crate::core::model;
 use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
+use crate::proto;
 use crate::{cm_assert, errno, return_errno};
-use capsule_manager_tonic::secretflowapis::v2::sdc::capsule_manager::*;
 use log::warn;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -38,7 +38,7 @@ struct DataMeta {
 #[derive(Debug)]
 struct PolicyMeta {
     // data policy
-    policy: Policy,
+    policy: proto::Policy,
     // policy party_id
     party_id: String,
     // policy scope
@@ -99,7 +99,7 @@ impl StorageEngine for InMemoryStorage {
         &self,
         owner_party_id: &str,
         scope: &str,
-        policy: &Policy,
+        policy: &proto::Policy,
     ) -> AuthResult<()> {
         let data_uuid = &policy.data_uuid;
         let key = format!("{}/{}", scope, data_uuid);
@@ -125,7 +125,7 @@ impl StorageEngine for InMemoryStorage {
     async fn store_data_keys(
         &self,
         owner_party_id: &str,
-        data_keys: &Vec<DataKey>,
+        data_keys: &Vec<proto::DataKey>,
     ) -> AuthResult<()> {
         // if lock crash, the program will terminate
         let mut data_keys_map = self.data_keys_map.lock().unwrap();
@@ -233,7 +233,7 @@ impl StorageEngine for InMemoryStorage {
         owner_party_id: &str,
         scope: &str,
         data_uuid: &str,
-        rule: &Rule,
+        rule: &proto::Rule,
     ) -> AuthResult<()> {
         let key = format!("{}/{}", scope, data_uuid);
         // if lock crash, the program will terminate
@@ -242,7 +242,7 @@ impl StorageEngine for InMemoryStorage {
             data_policy_map.insert(
                 key,
                 PolicyMeta {
-                    policy: Policy {
+                    policy: proto::Policy {
                         data_uuid: data_uuid.to_string(),
                         rules: vec![rule.clone()],
                     },
@@ -340,7 +340,7 @@ impl StorageEngine for InMemoryStorage {
         Ok(())
     }
 
-    async fn get_data_keys(&self, resource_uris: &Vec<&str>) -> AuthResult<Vec<DataKey>> {
+    async fn get_data_keys(&self, resource_uris: &Vec<&str>) -> AuthResult<Vec<proto::DataKey>> {
         // if lock crash, the program will terminate
         let data_keys_map = self.data_keys_map.lock().unwrap();
         // collect data keys
@@ -349,7 +349,7 @@ impl StorageEngine for InMemoryStorage {
             let resource_uri_inner: model::ResourceUri = resource_uri.parse()?;
             if let Some(data_meta) = data_keys_map.get(&resource_uri_inner.data_uuid) {
                 if let Some(data_key_b64) = data_meta.data_keys.get(*resource_uri) {
-                    result.push(DataKey {
+                    result.push(proto::DataKey {
                         resource_uri: resource_uri.to_string(),
                         data_key_b64: data_key_b64.clone(),
                     });
@@ -372,7 +372,11 @@ impl StorageEngine for InMemoryStorage {
         Ok(data_meta.party_id.clone())
     }
 
-    async fn get_data_policys(&self, owner_party_id: &str, scope: &str) -> AuthResult<Vec<Policy>> {
+    async fn get_data_policys(
+        &self,
+        owner_party_id: &str,
+        scope: &str,
+    ) -> AuthResult<Vec<proto::Policy>> {
         // if lock crash, the program will terminate
         let data_policy_map = self.data_policy_map.lock().unwrap();
         let mut policy_vec = vec![];
@@ -384,7 +388,11 @@ impl StorageEngine for InMemoryStorage {
         Ok(policy_vec)
     }
 
-    async fn get_data_policy_by_id(&self, data_uuid: &str, scope: &str) -> AuthResult<Policy> {
+    async fn get_data_policy_by_id(
+        &self,
+        data_uuid: &str,
+        scope: &str,
+    ) -> AuthResult<proto::Policy> {
         let key = format!("{}/{}", scope, data_uuid);
         // if lock crash, the program will terminate
         let data_policy_map = self.data_policy_map.lock().unwrap();

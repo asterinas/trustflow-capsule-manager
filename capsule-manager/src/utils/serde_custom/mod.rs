@@ -20,4 +20,3 @@
 pub(crate) mod byte_sequence;
 pub(crate) mod format_string;
 pub(crate) mod jwe_header;
-pub(crate) mod jws_header;

@@ -14,10 +14,10 @@
 
 pub mod core;
 pub mod error;
-pub mod remote_attestation;
 pub mod storage;
 pub mod utils;
 
 pub mod proto {
-    pub use capsule_manager_tonic::secretflowapis::v2::sdc::capsule_manager::*;
+    pub use sdc_apis::secretflowapis::v2::sdc::capsule_manager::{DataKey, Policy, Rule};
+    pub use sdc_apis::secretflowapis::v2::sdc::{Jwe, Jws};
 }

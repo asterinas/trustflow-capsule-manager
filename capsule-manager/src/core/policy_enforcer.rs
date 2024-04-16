@@ -1,3 +1,18 @@
+// Copyright 2024 Ant Group Co., Ltd.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
 use crate::core::model::policy::{self, Rule};
 use crate::core::model::request;
 use crate::errno;
@@ -161,7 +176,7 @@ mod tests {
 
     use crate::core::model::policy::Policy;
     use crate::core::model::request::{
-        Environment, GlobalAttributes, SingleResourceRequest, TeeIdentity,
+        Environment, GlobalAttributes, SingleResourceRequest, TeeIdentity, TeeInfo,
     };
 
     use super::PolicyEnforcer;
@@ -181,9 +196,12 @@ mod tests {
             op_name: crate::core::model::Operator::PSI,
             env: Some(Environment {
                 request_time: Some("2023-08-24T12:55:52Z".parse::<DateTime<Utc>>().unwrap()),
-                tee: Some(TeeIdentity::SGX {
-                    mr_enclave: "mr_enclave".to_owned(),
-                    mr_signer: "mr_signer".to_owned(),
+                tee: Some(TeeInfo {
+                    platform: crate::core::model::request::TeePlatform::SGX,
+                    identity: Some(TeeIdentity::SGX {
+                        mr_enclave: "mr_enclave".to_owned(),
+                        mr_signer: "mr_signer".to_owned(),
+                    }),
                 }),
             }),
             custom_attrs: Some(serde_json::from_str(attrs).unwrap()),
@@ -210,7 +228,7 @@ mod tests {
                         "op_constraints":[
                             {
                                 "op_name":"OP_PSI",
-                                "constraints": ["r.env.tee.sgx.mr_enclave==\"mr_enclave\""]
+                                "constraints": ["r.env.tee.sgx.mr_enclave==\"mr_enclave\" && r.env.tee.platform==\"sgx\""]
                             }
                         ],
                         "columns":[

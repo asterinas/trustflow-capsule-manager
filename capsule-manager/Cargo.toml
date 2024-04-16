@@ -9,8 +9,6 @@ edition = "2021"
 production = []
 
 [dependencies]
-capsule_manager_tonic = { path = "../capsule-manager-tonic" }
-remote_attestation = { path = "../second_party/remote-attestation", features=["ua_gen"]}
 clap = { version = "3.x", features = ["derive"]}
 merge = "0.1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -44,6 +42,9 @@ hex = "0.4.3"
 base32 = "0.4.0"
 lazy_static = "1.4.0"
 uuid = { version = "1.4.1", feaures = ["v4", "fast-rng", "macro-diagnostics"] }
+sdc_apis = "0.2.1-dev20240222"
+trustedflow-attestation-rs = { version = "0.1.2-dev240313"}
+
 
 [dev-dependencies]
 serde_test = "1.0"
