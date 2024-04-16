@@ -31,6 +31,9 @@ parameters:
   GHA_Mode:
     type: string
     default: ""
+  GHA_Platform:
+    type: string
+    default: ""
   GHA_Version:
     type: string
     default: ""
@@ -59,23 +62,52 @@ jobs:
             cargo build
             cargo test
 
-  dev_docker_image_publish:
+  docker_image_publish:
     docker:
       - image: cimg/deploy:2023.06.1
+    resource_class: 2xlarge+
     steps:
       - checkout
       - setup_remote_docker
       - run:
           name: Build and Push Dev Docker image
           command: |
-            VERSION=<< pipeline.parameters.GHA_Version >>
+            PLATFORM=<< pipeline.parameters.GHA_Platform >>
+            COMMON_VERSION=<< pipeline.parameters.GHA_Version >>
+            OCCLUM_VERSION=occlum0.30.1-<< pipeline.parameters.GHA_Version >>
+
             # login docker
             docker login -u secretflow -p ${DOCKER_DEPLOY_TOKEN}
-            echo "build and publish in common mode, version: ${VERSION}"
-            cd docker
-            docker build -f ubuntu.Dockerfile -t secretflow/capsule-manager-ci:${VERSION} .
-            docker tag secretflow/capsule-manager-ci:${VERSION} secretflow/capsule-manager-ci:latest
-            docker push secretflow/capsule-manager-ci:${VERSION}
+
+            case "$PLATFORM" in
+              sim)
+                echo "build and publish in sim mode, version: ${COMMON_VERSION}"
+                bash deployment/publish.sh -p sim -v ${COMMON_VERSION} -l -u
+                ;;
+              sgx)
+                echo "build and publish in sgx mode, version: ${OCCLUM_VERSION}"
+                bash deployment/publish.sh -p sgx -v ${OCCLUM_VERSION} -l -u
+                ;;
+              tdx)
+                echo "build and publish in tdx mode, version: ${COMMON_VERSION}"
+                bash deployment/publish.sh -p tdx -v ${COMMON_VERSION} -l -u
+                ;;
+              csv)
+                echo "build and publish in csv mode, version: ${COMMON_VERSION}"
+                bash deployment/publish.sh -p csv -v ${COMMON_VERSION} -l -u
+                ;;
+              all)
+                echo "build and publish all mode images, common version: ${COMMON_VERSION}, occlum version: ${OCCLUM_VERSION}"
+                bash deployment/publish.sh -p sim -v ${COMMON_VERSION} -l -u
+                bash deployment/publish.sh -p sgx -v ${OCCLUM_VERSION} -l -u
+                bash deployment/publish.sh -p tdx -v ${COMMON_VERSION} -l -u
+                bash deployment/publish.sh -p csv -v ${COMMON_VERSION} -l -u
+                ;;
+              *)
+                echo "Platform err, should be one of sim/sgx/tdx/csv/all, but got $PLATFORM"
+                exit 1
+                ;;
+            esac
 
 
 # Invoke jobs via workflows
@@ -89,7 +121,8 @@ workflows:
   docker-image-publish-workflow:
     when:
       and:
-        - equal: ["dev_docker_image_publish", << pipeline.parameters.GHA_Action >>]
+        - equal: ["docker_image_publish", << pipeline.parameters.GHA_Action >>]
+        - exits: << pipeline.parameters.GHA_Platform >>
         - exits: << pipeline.parameters.GHA_Version >>
     jobs:
-      - dev_docker_image_publish
+      - docker_image_publish
