@@ -18,12 +18,11 @@ pub mod server;
 use capsule_manager::storage::in_memory_storage::InMemoryStorage;
 use capsule_manager::storage::storage_engine::StorageEngine;
 use capsule_manager::utils;
-use capsule_manager::utils::scheme::AsymmetricScheme;
-use capsule_manager_tonic::secretflowapis::v2::sdc::capsule_manager::capsule_manager_server::CapsuleManagerServer;
 use config::config::Config;
 use log::info;
+use sdc_apis::secretflowapis::v2::sdc::capsule_manager::capsule_manager_server::CapsuleManagerServer;
 use std::fs;
-use std::str::{from_utf8, FromStr};
+use std::str::from_utf8;
 use tonic::transport::Server;
 
 #[tokio::main(worker_threads = 16)]
@@ -48,7 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
     let capsule_manager = server::CapsuleManagerImpl::new(
-        AsymmetricScheme::from_str(cfg.scheme.as_ref().unwrap().as_str()).unwrap(),
         storage_engine.clone(),
         &cfg.mode.as_ref().unwrap().as_str(),
     )

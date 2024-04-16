@@ -16,9 +16,12 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 // constant define
-pub const RSA_BIT_LEN: u32 = 3072;
-pub const SEPARATOR: &str = ".";
-pub const CERT_DAYS: u32 = 365;
+pub(crate) const RSA_BIT_LEN: u32 = 3072;
+pub(crate) const SEPARATOR: &str = ".";
+pub(crate) const CERT_DAYS: u32 = 365;
+pub(crate) const TEE_PLATFORM_SGX: &str = "SGX_DCAP";
+pub(crate) const TEE_PLATFORM_TDX: &str = "TDX";
+pub(crate) const TEE_PLATFORM_CSV: &str = "CSV";
 
 lazy_static! {
     pub static ref X509NAME: HashMap<&'static str, &'static str> = {

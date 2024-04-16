@@ -16,8 +16,8 @@ use super::CapsuleManagerImpl;
 use capsule_manager::errno;
 use capsule_manager::error::errors::{Error, ErrorCode, ErrorLocation};
 use capsule_manager::utils::jwt::jwa::Secret;
-use capsule_manager_tonic::secretflowapis::v2::sdc::capsule_manager::*;
-use capsule_manager_tonic::secretflowapis::v2::{Code, Status};
+use sdc_apis::secretflowapis::v2::sdc::capsule_manager::*;
+use sdc_apis::secretflowapis::v2::{Code, Status};
 
 impl CapsuleManagerImpl {
     pub async fn create_data_policy_impl(

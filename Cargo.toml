@@ -1,8 +1,5 @@
 [workspace]
-resolver = "2"
 
 members = [
-    "capsule-manager",
-    "capsule-manager-tonic",
-    "second_party/remote-attestation"
+    "capsule-manager"
 ]

@@ -12,76 +12,64 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::constant::{TEE_PLATFORM_SGX, TEE_PLATFORM_TDX};
 use super::CapsuleManagerImpl;
 use crate::server::constant::SEPARATOR;
 use capsule_manager::core::model;
 use capsule_manager::core::model::policy;
-use capsule_manager::core::model::request::TeeIdentity;
+use capsule_manager::core::model::request::{Environment, TeeIdentity, TeeInfo, TeePlatform};
 use capsule_manager::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
-use capsule_manager::proto::{
-    CreateDataKeysRequest, CreateResultDataKeyRequest, DeleteDataKeyRequest, EncryptedRequest,
-    EncryptedResponse, GetDataKeysRequest, GetDataKeysResponse, GetExportDataKeyRequest,
-    GetExportDataKeyResponse, RegisterCertRequest,
-};
-use capsule_manager::remote_attestation::unified_attestation_wrapper::runified_attestation_verify_auth_report;
 use capsule_manager::utils::jwt::jwa::Secret;
 use capsule_manager::utils::tool::{
     get_public_key_from_cert_chain, sha256, vec_str_to_vec_u8, verify_cert_chain,
 };
 use capsule_manager::utils::type_convert::from;
-use capsule_manager::{cm_assert, errno, proto, return_errno};
-use capsule_manager_tonic::secretflowapis::v2::sdc::{
-    UnifiedAttestationAttributes, UnifiedAttestationPolicy,
-};
-use capsule_manager_tonic::secretflowapis::v2::{Code, Status};
+use capsule_manager::{cm_assert, errno, proto};
 use hex::encode_upper;
 use prost::Message;
+use sdc_apis::secretflowapis::v2::sdc::capsule_manager::{
+    CreateDataKeysRequest, CreateResultDataKeyRequest, DeleteDataKeyRequest, EncryptedRequest,
+    EncryptedResponse, GetDataKeysRequest, GetDataKeysResponse, GetExportDataKeyRequest,
+    GetExportDataKeyResponse, RegisterCertRequest,
+};
+use sdc_apis::secretflowapis::v2::sdc::{UnifiedAttestationAttributes, UnifiedAttestationPolicy};
+use sdc_apis::secretflowapis::v2::{Code, Status};
 
-pub fn ra_verify(request: &GetDataKeysRequest) -> AuthResult<()> {
-    // NOTICE: hex must be uppercase
-    let resource_request = request
-        .resource_request
-        .as_ref()
-        .ok_or(errno!(ErrorCode::InvalidArgument, "request is empty"))?;
-
+/// verify attestation report to get verified attributes
+fn ra_verify(
+    report_json_str: &str,
+    report_data_raw: &[u8],
+) -> AuthResult<UnifiedAttestationAttributes> {
     // get report data
-    let data = [
-        request.cert.as_bytes(),
-        resource_request.encode_to_vec().as_ref(),
-    ]
-    .join(SEPARATOR.as_bytes());
-    let hex_report_data = encode_upper(sha256(&data));
-
-    // get mr info
-    let resource_request_innner: model::request::ResourceRequest = from(&resource_request)?;
+    let hex_report_data = encode_upper(sha256(&report_data_raw));
 
     // fill policy
-    let mut attribute1 = UnifiedAttestationAttributes::default();
-    attribute1.str_tee_platform = "SGX_DCAP".to_string();
-    if let Some(env) = resource_request_innner.global_attributes.env {
-        if let Some(tee) = env.tee {
-            match tee {
-                TeeIdentity::SGX {
-                    mr_enclave,
-                    mr_signer,
-                } => {
-                    attribute1.hex_ta_measurement = mr_enclave.clone().to_uppercase();
-                    attribute1.hex_signer = mr_signer.clone().to_uppercase();
-                }
-                _ => return_errno!(ErrorCode::InvalidArgument, "env tee field invalid"),
-            };
-        }
+    let mut verified_attributes = UnifiedAttestationAttributes::default();
+
+    let attributes = trustedflow_attestation_rs::parse_attributes_from_report(report_json_str)
+        .map_err(|e| {
+            errno!(
+                ErrorCode::InvalidArgument,
+                "parse report attributes failed: {:?}.",
+                e
+            )
+        })?;
+
+    if attributes.str_tee_platform == TEE_PLATFORM_SGX
+        || attributes.str_tee_platform == TEE_PLATFORM_TDX
+    {
+        verified_attributes.bool_debug_disabled = "1".to_string();
     }
-    attribute1.bool_debug_disabled = "1".to_string();
-    attribute1.hex_user_data = hex_report_data.clone();
+
+    verified_attributes.hex_user_data = hex_report_data.clone();
     let policy = UnifiedAttestationPolicy {
         pem_public_key: "".to_owned(),
-        main_attributes: vec![attribute1],
-        nested_policies: vec![],
+        main_attributes: vec![verified_attributes],
+        nested_policies: None,
     };
 
     // UAL verification
-    let str_policy = serde_json::to_string(&policy).map_err(|e| {
+    let policy_json_str = serde_json::to_string(&policy).map_err(|e| {
         errno!(
             ErrorCode::InternalErr,
             "report_policy {:?} to json err: {:?}",
@@ -89,16 +77,26 @@ pub fn ra_verify(request: &GetDataKeysRequest) -> AuthResult<()> {
             e
         )
     })?;
-    let str_report = serde_json::to_string(&request.attestation_report).map_err(|e| {
+    trustedflow_attestation_rs::attestation_report_verify(
+        report_json_str,
+        policy_json_str.as_str(),
+    )
+    .map_err(|e| {
         errno!(
-            ErrorCode::InternalErr,
-            "report {:?} to json err: {:?}",
-            &request.attestation_report,
+            ErrorCode::PermissionDenied,
+            "attestation report verify failed: {:?}",
             e
         )
     })?;
-    runified_attestation_verify_auth_report(str_report.as_str(), str_policy.as_str())?;
-    Ok(())
+    Ok(
+        trustedflow_attestation_rs::parse_attributes_from_report(report_json_str).map_err(|e| {
+            errno!(
+                ErrorCode::InvalidArgument,
+                "parse report attributes failed: {:?}.",
+                e
+            )
+        })?,
+    )
 }
 
 impl CapsuleManagerImpl {
@@ -108,16 +106,76 @@ impl CapsuleManagerImpl {
     ) -> AuthResult<EncryptedResponse> {
         let (request_content, _) =
             super::get_request::<GetDataKeysRequest>(&self.kek_pri, encrypt_request)?;
-        // 1. verify RA
-        if self.mode == "production" {
-            ra_verify(&request_content)?;
-        }
 
-        // 2. enforce data policy
-        let resource_request_innner: model::request::ResourceRequest =
+        let mut resource_request_innner: model::request::ResourceRequest =
             from(&request_content.resource_request)?;
         log::debug!("resource request {:?}", resource_request_innner);
 
+        // 1. verify RA
+        //   in simulation mode, ra verification will be passed if
+        //      attestation_report is none.
+        if !(self.mode == "simulation") || request_content.attestation_report.is_some() {
+            let report_json_str = serde_json::to_string(&request_content.attestation_report)
+                .map_err(|e| {
+                    errno!(
+                        ErrorCode::InternalErr,
+                        "report {:?} to json err: {:?}",
+                        &request_content.attestation_report,
+                        e
+                    )
+                })?;
+
+            // get report raw data
+            let resource_request = request_content
+                .resource_request
+                .as_ref()
+                .ok_or(errno!(ErrorCode::InvalidArgument, "request is empty"))?;
+
+            let report_data_raw = [
+                request_content.cert.as_bytes(),
+                resource_request.encode_to_vec().as_ref(),
+            ]
+            .join(SEPARATOR.as_bytes());
+
+            let attributes = ra_verify(&report_json_str, &report_data_raw)?;
+
+            let (tee_identity, tee_platform) = match attributes.str_tee_platform.as_str() {
+                "SGX_DCAP" => (
+                    TeeIdentity::SGX {
+                        mr_enclave: attributes.hex_ta_measurement,
+                        mr_signer: attributes.hex_signer,
+                    },
+                    TeePlatform::SGX,
+                ),
+                "TDX" => (
+                    TeeIdentity::TDX {
+                        mr_plat: attributes.hex_platform_measurement,
+                        mr_boot: attributes.hex_boot_measurement,
+                        mr_ta: attributes.hex_ta_measurement,
+                    },
+                    TeePlatform::TDX,
+                ),
+                "CSV" => (
+                    TeeIdentity::CSV {
+                        mr_boot: attributes.hex_boot_measurement,
+                    },
+                    TeePlatform::CSV,
+                ),
+                _ => {
+                    return Err(errno!(ErrorCode::UnsupportedErr, "unsupported platform"));
+                }
+            };
+
+            resource_request_innner.global_attributes.env = Some(Environment {
+                request_time: Some(chrono::offset::Utc::now()),
+                tee: Some(TeeInfo {
+                    platform: tee_platform,
+                    identity: Some(tee_identity),
+                }),
+            })
+        }
+
+        // 2. enforce data policy
         // each resource uri should follow data policy
         for single_request in resource_request_innner.iter() {
             let resource_uri: model::ResourceUri = single_request.resource_uri.parse()?;
@@ -306,39 +364,17 @@ impl CapsuleManagerImpl {
     ) -> AuthResult<EncryptedResponse> {
         let (request_content, _) =
             super::get_request::<CreateResultDataKeyRequest>(&self.kek_pri, encrypt_request)?;
-        // 1. verify RA
-        // NOTICE: hex must be uppercase
         let body = request_content
             .body
             .as_ref()
             .ok_or(errno!(ErrorCode::InvalidArgument, "request body is empty"))?;
 
-        //  UAL verification
-        if self.mode == "production" {
-            let hex_report_data = encode_upper(sha256(body.encode_to_vec().as_slice()));
-            // fill policy
-            let mut attribute1 = UnifiedAttestationAttributes::default();
-            attribute1.str_tee_platform = "SGX_DCAP".to_string();
-            attribute1.bool_debug_disabled = "1".to_string();
-            attribute1.hex_user_data = hex_report_data.clone();
-
-            let policy = UnifiedAttestationPolicy {
-                pem_public_key: "".to_owned(),
-                main_attributes: vec![attribute1],
-                nested_policies: vec![],
-            };
-
-            // UAL verification
-            let str_policy = serde_json::to_string(&policy).map_err(|e| {
-                errno!(
-                    ErrorCode::InternalErr,
-                    "report_policy {:?} to json err: {:?}",
-                    &policy,
-                    e
-                )
-            })?;
-            let str_report =
-                serde_json::to_string(&request_content.attestation_report).map_err(|e| {
+        // 1. verify RA
+        //   in simulation mode, ra verification will be passed if
+        //      attestation_report is none.
+        if !(self.mode == "simulation") || request_content.attestation_report.is_some() {
+            let report_json_str = serde_json::to_string(&request_content.attestation_report)
+                .map_err(|e| {
                     errno!(
                         ErrorCode::InternalErr,
                         "report {:?} to json err: {:?}",
@@ -346,7 +382,8 @@ impl CapsuleManagerImpl {
                         e
                     )
                 })?;
-            runified_attestation_verify_auth_report(str_report.as_str(), str_policy.as_str())?;
+
+            ra_verify(&report_json_str, body.encode_to_vec().as_slice())?;
         }
 
         self.storage_engine

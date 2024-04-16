@@ -1,3 +1,18 @@
+// Copyright 2024 Ant Group Co., Ltd.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
 use super::Operator;
 use crate::core::model;
 use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
@@ -21,6 +36,36 @@ pub enum TeeIdentity {
         mr_enclave: String,
         mr_signer: String,
     },
+
+    #[serde(rename = "csv")]
+    CSV { mr_boot: String },
+
+    #[serde(rename = "tdx")]
+    TDX {
+        mr_plat: String,
+        mr_boot: String,
+        mr_ta: String,
+    },
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub enum TeePlatform {
+    #[serde(rename = "sgx")]
+    SGX,
+
+    #[serde(rename = "csv")]
+    CSV,
+
+    #[serde(rename = "tdx")]
+    TDX,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
+pub struct TeeInfo {
+    pub platform: TeePlatform,
+
+    #[serde(flatten)]
+    pub identity: Option<TeeIdentity>,
 }
 
 /// Serialize a jwe header into Base64 URL encoded string
@@ -46,7 +91,7 @@ pub struct Environment {
     pub request_time: Option<DateTime<Utc>>,
 
     // The identity of the TEE requesting the resource
-    pub tee: Option<TeeIdentity>,
+    pub tee: Option<TeeInfo>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
@@ -186,23 +231,23 @@ pub enum VoteType {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RequestBody {
     //unique vote id
-    pub vote_request_id: String,
+    pub vote_request_id: Option<String>,
 
     //vote type
     #[serde(rename = "type")]
     pub vote_type: VoteType,
 
     //vote initiator
-    pub initiator: String,
+    pub initiator: Option<String>,
 
     //vote_counter
-    pub vote_counter: String,
+    pub vote_counter: Option<String>,
 
     //vote participants
-    pub voters: Vec<String>,
+    pub voters: Option<Vec<String>>,
 
     //executors
-    pub executors: Vec<String>,
+    pub executors: Option<Vec<String>>,
 
     //approved_threshold
     pub approved_threshold: u32,
@@ -238,10 +283,10 @@ pub enum Action {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct InviteBody {
     //unique vote id
-    pub vote_request_id: String,
+    pub vote_request_id: Option<String>,
 
     //participant
-    pub voter: String,
+    pub voter: Option<String>,
 
     pub action: Action,
 }
@@ -324,8 +369,8 @@ impl VoteResult {
         let invite_body: InviteBody = serde_json::from_str(std::str::from_utf8(&invite.body)?)?;
         cm_assert!(
             invite_body.action == Action::Approve,
-            "vote request_id {} action is not approve",
-            &invite_body.vote_request_id
+            "vote request_id {:?} action is not approve",
+            invite_body.vote_request_id
         );
         Ok(())
     }
@@ -372,8 +417,26 @@ mod tests {
     use chrono::{DateTime, Utc};
 
     use super::{
-        Environment, GlobalAttributes, ResourceRequest, SingleResourceRequest, TeeIdentity
+        Environment, GlobalAttributes, InviteBody, RequestBody, ResourceRequest,
+        SingleResourceRequest, TeeIdentity,
     };
+
+    #[test]
+    fn test_vote_result_serde() {
+        let vote_request_json = r#"
+        {
+            "type": "TEE_DOWNLOAD",
+            "approved_threshold": 1,
+            "approved_action": "tee/download,join_uuid"
+        }
+        "#;
+
+        let vote_request: RequestBody = serde_json::from_str(vote_request_json).unwrap();
+
+        let vote_invite_json = "{\"action\": \"APPROVE\"}";
+
+        let vote_invite: InviteBody = serde_json::from_str(vote_invite_json).unwrap();
+    }
 
     #[test]
     fn test_global_attributes_serde() {
@@ -415,9 +478,12 @@ mod tests {
             op_name: crate::core::model::Operator::ANY,
             env: Some(Environment {
                 request_time: Some("2023-08-24T12:55:52Z".parse::<DateTime<Utc>>().unwrap()),
-                tee: Some(TeeIdentity::SGX {
-                    mr_enclave: "mr_enclave".to_owned(),
-                    mr_signer: "mr_signer".to_owned(),
+                tee: Some(crate::core::model::request::TeeInfo {
+                    platform: crate::core::model::request::TeePlatform::SGX,
+                    identity: Some(TeeIdentity::SGX {
+                        mr_enclave: "mr_enclave".to_owned(),
+                        mr_signer: "mr_signer".to_owned(),
+                    }),
                 }),
             }),
             custom_attrs: Some(serde_json::from_str(attrs).unwrap()),
@@ -447,7 +513,8 @@ mod tests {
                         "sgx":{
                             "mr_enclave":"mr_enclave",
                             "mr_signer":"mr_signer"
-                        }
+                        },
+                        "platform": "sgx"
                     }
                 },
                 "initiator_party_id":"partyid#1",
