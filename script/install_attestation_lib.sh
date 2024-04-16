@@ -53,7 +53,7 @@ NC="\033[0m"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd $SCRIPT_DIR
 rm -rf trustedflow
-git clone https://github.com/secretflow/capsule-manager.git
+git clone https://github.com/secretflow/trustedflow.git
 cd trustedflow
 
 echo "build trustedflow attestation"
