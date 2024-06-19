@@ -193,7 +193,7 @@ mod tests {
         let global_attrs = GlobalAttributes {
             initiator_party_id: "partyid#1".to_owned(),
             scope: "workspace#1".to_owned(),
-            op_name: crate::core::model::Operator::PSI,
+            op_name: "OP_PSI".to_owned(),
             env: Some(Environment {
                 request_time: Some("2023-08-24T12:55:52Z".parse::<DateTime<Utc>>().unwrap()),
                 tee: Some(TeeInfo {
@@ -237,7 +237,6 @@ mod tests {
                     }
                 ]
             }
-
         "#;
         let policy: Policy = serde_json::from_str(policy_str).unwrap();
         enforcer.enforce(&request, &policy).unwrap();

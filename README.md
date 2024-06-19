@@ -98,7 +98,6 @@ At present, there are four official images: sim/sgx/tdx/csv, which correspond to
     Set real `pccs_url` and set `use_secure_cert` to **false** in /etc/sgx_default_qcnl.conf.
 
 3. Run Capsule Manager
-
     By default, `enable-tls` is **true**. You can configure mTLS by referring to Mutual TLS：
     ```bash
     ./capsule_manager --enable-tls false
@@ -166,7 +165,6 @@ Remote Attestation is not enabled for this mode
     ./script/build -p sgx
     ```
 2. Run
-
    After entering 'script/occlum_instance', it runs in the same way as the chapter (Run Quickly by Docker Image#SGX mode)
 
 ### TDX Mode

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 
-use super::Operator;
 use crate::core::model;
 use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
 use crate::utils::jwt::jwa::{Secret, SignatureAlgorithm};
@@ -105,7 +104,9 @@ pub struct GlobalAttributes {
     pub scope: String,
 
     // operators
-    pub op_name: Operator,
+    // "*": indicate that any operator is allowed
+    // "": indicate that no operator is allowed
+    pub op_name: String,
 
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -452,7 +453,6 @@ mod tests {
                     "columns":[
                         "col"
                     ]
-
                 }
             ]
         }
@@ -475,7 +475,7 @@ mod tests {
         let global_attrs = GlobalAttributes {
             initiator_party_id: "partyid#1".to_owned(),
             scope: "workspace#1".to_owned(),
-            op_name: crate::core::model::Operator::ANY,
+            op_name: "*".to_owned(),
             env: Some(Environment {
                 request_time: Some("2023-08-24T12:55:52Z".parse::<DateTime<Utc>>().unwrap()),
                 tee: Some(crate::core::model::request::TeeInfo {
