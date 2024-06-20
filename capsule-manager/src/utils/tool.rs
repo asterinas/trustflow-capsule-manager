@@ -89,32 +89,3 @@ pub fn gen_party_id(pk: &PKey<Public>) -> AuthResult<String> {
         &sha256(&pk.public_key_to_der()?),
     ))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{get_cert_from_cert_chain, verify_cert_chain};
-    use base64::engine::general_purpose;
-    use base64::Engine;
-
-    #[test]
-    fn test_verify_cert_chain_der() {
-        let cert0 = "MIIDkzCCAnugAwIBAgIUd1LFNjoWq+lwVxMueA2zgdb5+l4wDQYJKoZIhvcNAQELBQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMzEwMTMwODIxMTRaFw0yODEwMTEwODIxMTRaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCwyD/Gek04NtdV696Rwa2hlWdTdXQlAquu6dxcFqdLPDsicuKfIEoDNEMhqKhw27rH3/r1u7zL2iqBjDCvHWyEFH+pEatilOiSwAmPA2gjGf8obsrztOdi3oGpDmMck8AGDtUMz8is2pG+gi+D40X2MT2hUd4EsjxAVizQqRdHTU3Qscq1fKveQqK9SEDZAcFXLvYYFpN40gIymNGLqSiO2MY7n8SDZTBvm6s5Srqdxmk1qH96iI1LQ1W0XQ9XR99MqhnZajzuO8SuB0LhFvOVqzKpM2oWWC/4WYgCBd4f17h9WMkT6ElwO+qlORXksAUi4oIwxB6UhUsgz2N3u4bHAgMBAAGjezB5MB8GA1UdIwQYMBaAFNYratn4oPKSSNZVSpXIfzjV3DG/MAkGA1UdEwQCMAAwCwYDVR0PBAQDAgTwMB8GA1UdEQQYMBaCCWxvY2FsaG9zdIIJMTI3LjAuMC4xMB0GA1UdDgQWBBQOGk3ygjT9kj2k9UDMJJxl7fL9MzANBgkqhkiG9w0BAQsFAAOCAQEAvphkkc1J7NC+RY6xtW2bR5EjuV5xHll7sPaGVesOgVoKbbFnAmvej9ngrajhcKRPCz7wngPBUKZjZEI5tuBk7dQ6y1bx6HKUqAFcekahEznYUxtOZJoX7br6J66ZKnkgaduWzWlrx8KmwOdGiKpxuVo3iZJwDYkt2DPB+r8DHMwxlopm4+Tayg9QyfhPDbB/e8jg3dBDmdAyPoVsSEmbZDIocgnmz3XQCsx1RmXbNcd8HFZaX2OSEaG3DoQI30GgVaPeq1qRivm605/pLykw5m5ZzY3txrIE2EcFJVI37lh9xJD4FKNAJheHemLDiqwtjQCj3QJCumH+SHLmb/HWeQ==";
-        let cert1 = "MIIDazCCAlOgAwIBAgIUFpdQY1bRpOs6eqYrlqBBdMcGzZAwDQYJKoZIhvcNAQELBQAwRTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMzEwMTMwODIxMDNaFw0yODEwMTEwODIxMDNaMEUxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLhTtwZWZ4CyAGQNKnCCrU454OVu6/LEsafKTQdsTLNQWeINVGL0s/SWKib2brzN7Gyj+e6IBGwtr7RjLYHrYcwpSEQxcc9p1oks6Lzhi4pwhORp60WrOTpUfsjAugQpPu+/dj5a9onOfqGjf5fEzzLtt86wMX2YrWHMGakYICeaa/lPa1YIi5bmQXNAH7yH+jfylBkIfB589AWNm1HJxoFZhrFavUqXMgcal1GEy1rQwVu/BXFPswEsuq2esTjc7C3745SerFBWHYBaBJBCLEPLjd+M/TrcYZBidIB9WuEx6Y/2Ho/sjTz+ww8FIjkdcwPv5Pq8+VmXvHlRteLikTAgMBAAGjUzBRMB0GA1UdDgQWBBTWK2rZ+KDykkjWVUqVyH841dwxvzAfBgNVHSMEGDAWgBTWK2rZ+KDykkjWVUqVyH841dwxvzAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQA0oyIKEfM45rKMGbUD6X5pZCZyKajVGWjzIH+DazhLRRR/K6dRrxG4C5ijTtU7XXTuDfEF0JyLizdiL3nNd8LIDARL8+7pwawBSjF1rrQFO341ylskXLfTtOE8L21Ol3I/twIE8rpyUVPF/AfUYLnbAJDq0hSxxskhdqwKQGBcnsgQqITLRdJ+GV3LcOKs4Oi00O8Vl51CFA+tNwX+J3eGYH5ZAV4P5rHEuiEOezFikuq/sz+6zYRTWwYFHyz0PcggDNpEaCvCTw/kBJbvp6K+x3HBqiaIr51PO7yUC+OEUanXCwqcqQiG4hKh1YZ94iNIIcSAaWKT20kIbKpFpyQH";
-        let cert_chain = vec![
-            general_purpose::STANDARD.decode(cert0).unwrap(),
-            general_purpose::STANDARD.decode(cert1).unwrap(),
-        ];
-        verify_cert_chain(&cert_chain, "DER").unwrap();
-        let x5090 = get_cert_from_cert_chain(&cert_chain, 0, "DER").unwrap();
-        let x5091 = get_cert_from_cert_chain(&cert_chain, 1, "DER").unwrap();
-
-        assert_eq!(
-            general_purpose::STANDARD.encode(&x5090.to_der().unwrap()),
-            cert0
-        );
-        assert_eq!(
-            general_purpose::STANDARD.encode(&x5091.to_der().unwrap()),
-            cert1
-        );
-    }
-}

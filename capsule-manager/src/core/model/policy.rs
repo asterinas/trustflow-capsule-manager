@@ -16,15 +16,13 @@
 use std::collections::HashSet;
 use std::iter::Enumerate;
 
-use super::Operator;
-
 use serde::{Deserialize, Serialize};
 
 const ANY_COLUMNS: &str = "*";
 
 #[derive(Deserialize, Serialize, PartialEq, Clone)]
 pub struct OpConstraint {
-    op_name: Operator,
+    op_name: String,
 
     #[serde(default)]
     constraints: Vec<String>,
@@ -64,10 +62,10 @@ impl Rule {
     }
 
     pub fn enable_any_op(&self) -> bool {
-        self.has_operator(&Operator::ANY)
+        self.has_operator(ANY_COLUMNS)
     }
 
-    pub fn has_operator(&self, op: &Operator) -> bool {
+    pub fn has_operator(&self, op: &str) -> bool {
         self.op_constraints
             .iter()
             .map(|elem| &elem.op_name == op)
@@ -75,7 +73,7 @@ impl Rule {
     }
 
     // Get non-empty constraints related to the specific operator
-    pub fn get_op_constraints<'a>(&'a self, op: &Operator) -> Vec<&'a String> {
+    pub fn get_op_constraints<'a>(&'a self, op: &str) -> Vec<&'a String> {
         self.op_constraints
             .iter()
             .filter(|&x| &x.op_name == op)
@@ -203,7 +201,6 @@ mod tests {
                     }
                 ]
             }
-
         "#;
 
         let policy: Policy = serde_json::from_str(expect).unwrap();
