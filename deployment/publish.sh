@@ -26,6 +26,8 @@ show_help() {
     echo "       tag this version as latest."
     echo "  -u"
     echo "       upload to docker registry."
+    echo "  -e"
+    echo "       docker registry."
     echo "  -h"
     echo "       help"
     exit
@@ -36,9 +38,10 @@ show_help() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd $SCRIPT_DIR/..
 
+DOCKER_REGS="secretflow"
 
 # 解析短选项的getopts循环
-while getopts "p:v:luh" opt; do
+while getopts "p:v:e:luh" opt; do
   case $opt in
     p)
       PLATFORM="$OPTARG"
@@ -47,6 +50,14 @@ while getopts "p:v:luh" opt; do
     v)
       VERSION="$OPTARG"
       echo "docker image version: $VERSION"
+      ;;
+    e)
+      IFS=: read -a DOCKER_REGS <<< "$OPTARG"
+      i=1
+      for repo in "${DOCKER_REGS[@]}"; do
+          echo "docker repo${i}: $repo"
+          i=$((i+1))
+      done
       ;;
     l)
       LATEST=1
@@ -66,9 +77,8 @@ shift $((OPTIND-1))
 GREEN="\033[32m"
 NC="\033[0m"
 
-DOCKER_REG="secretflow"
-IMAGE_TAG=${DOCKER_REG}/capsule-manager-$PLATFORM-ubuntu22.04:${VERSION}
-LATEST_TAG=${DOCKER_REG}/capsule-manager-$PLATFORM-ubuntu22.04:latest
+IMAGE_TAG=capsule-manager-$PLATFORM-ubuntu22.04:${VERSION}
+LATEST_TAG=capsule-manager-$PLATFORM-ubuntu22.04:latest
 echo -e "Building ${GREEN}${IMAGE_TAG}${NO_COLOR}"
 case "$PLATFORM" in
   sgx)
@@ -83,12 +93,17 @@ case "$PLATFORM" in
     ;;
 esac
 
-if [[ UPLOAD -eq 1 ]]; then
-    docker push ${IMAGE_TAG}
+for repo in "${DOCKER_REGS[@]}"; do
+  docker tag $IMAGE_TAG $repo/$IMAGE_TAG
+  if [[ UPLOAD -eq 1 ]]; then
+    docker push $repo/$IMAGE_TAG
     if [[ LATEST -eq 1 ]]; then
         echo -e "Tag ${GREEN}${LATEST_TAG}${NO_COLOR} ..."
-        docker tag ${IMAGE_TAG} ${LATEST_TAG}
+        docker tag ${IMAGE_TAG} $repo/$IMAGE_TAG
         echo -e "Push ${GREEN}${LATEST_TAG}${NO_COLOR} ..."
-        docker push ${LATEST_TAG}
+        docker push $repo/$IMAGE_TAG
     fi
-fi
+  fi
+done
+
+
