@@ -78,30 +78,32 @@ jobs:
 
             # login docker
             docker login -u secretflow -p ${DOCKER_DEPLOY_TOKEN}
+            # login docker - aliyun
+            docker login -u ${ALIYUN_DOCKER_USERNAME} -p ${ALIYUN_DOCKER_PASSWORD} secretflow-registry.cn-hangzhou.cr.aliyuncs.com
 
             case "$PLATFORM" in
               sim)
                 echo "build and publish in sim mode, version: ${COMMON_VERSION}"
-                bash deployment/publish.sh -p sim -v ${COMMON_VERSION} -l -u
+                bash deployment/publish.sh -p sim -v ${COMMON_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
                 ;;
               sgx)
                 echo "build and publish in sgx mode, version: ${OCCLUM_VERSION}"
-                bash deployment/publish.sh -p sgx -v ${OCCLUM_VERSION} -l -u
+                bash deployment/publish.sh -p sgx -v ${OCCLUM_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
                 ;;
               tdx)
                 echo "build and publish in tdx mode, version: ${COMMON_VERSION}"
-                bash deployment/publish.sh -p tdx -v ${COMMON_VERSION} -l -u
+                bash deployment/publish.sh -p tdx -v ${COMMON_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
                 ;;
               csv)
                 echo "build and publish in csv mode, version: ${COMMON_VERSION}"
-                bash deployment/publish.sh -p csv -v ${COMMON_VERSION} -l -u
+                bash deployment/publish.sh -p csv -v ${COMMON_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
                 ;;
               all)
                 echo "build and publish all mode images, common version: ${COMMON_VERSION}, occlum version: ${OCCLUM_VERSION}"
-                bash deployment/publish.sh -p sim -v ${COMMON_VERSION} -l -u
-                bash deployment/publish.sh -p sgx -v ${OCCLUM_VERSION} -l -u
-                bash deployment/publish.sh -p tdx -v ${COMMON_VERSION} -l -u
-                bash deployment/publish.sh -p csv -v ${COMMON_VERSION} -l -u
+                bash deployment/publish.sh -p sim -v ${COMMON_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
+                bash deployment/publish.sh -p sgx -v ${OCCLUM_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
+                bash deployment/publish.sh -p tdx -v ${COMMON_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
+                bash deployment/publish.sh -p csv -v ${COMMON_VERSION} -l -u -e secretflow:secretflow-registry.cn-hangzhou.cr.aliyuncs.com/secretflow
                 ;;
               *)
                 echo "Platform err, should be one of sim/sgx/tdx/csv/all, but got $PLATFORM"
