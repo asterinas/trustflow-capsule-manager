@@ -55,14 +55,14 @@ bash install_attestation_lib.sh -p $PLATFORM
 
 case "$PLATFORM" in
   sgx)
-    /root/.cargo/bin/cargo build -p capsule_manager --release --features production
+    /root/.cargo/bin/cargo build -p grpc-as --release --features production
     bash build_occlum.sh
     ;;
   sim)
-    /root/.cargo/bin/cargo build -p capsule_manager --release
+    /root/.cargo/bin/cargo build -p grpc-as --release
     ;;
   tdx|csv)
-    /root/.cargo/bin/cargo build -p capsule_manager --release --features production
+    /root/.cargo/bin/cargo build -p grpc-as --release --features production
     ;;
   *)
     echo -e "PLATFORM does not match any of options(sim/sgx/tdx/csv)"

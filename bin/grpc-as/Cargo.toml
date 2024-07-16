@@ -1,0 +1,16 @@
+[package]
+name = "grpc-as"
+version = "0.4.0b0"
+edition = "2021"
+
+[features]
+production = []
+
+[dependencies]
+capsule_manager = {path = "../../capsule-manager"}
+sdc_apis = "0.2.1-dev20240222"
+tonic = { version = "0.9.2", features = ["tls"] }
+log = "0.4"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+openssl-sys = "0.9"
+openssl =  { version = "0.10"}

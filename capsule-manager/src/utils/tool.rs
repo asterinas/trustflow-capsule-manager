@@ -27,6 +27,14 @@ pub fn sha256(buf: &[u8]) -> [u8; 32] {
     hasher.finish()
 }
 
+pub fn base64_encode(buf: &[u8]) -> String {
+    general_purpose::STANDARD.encode(buf)
+}
+
+pub fn base64_decode(buf: &str) -> AuthResult<Vec<u8>> {
+    Ok(general_purpose::STANDARD.decode(buf)?)
+}
+
 pub fn sha256_with_base64_encode(buf: &[u8]) -> String {
     general_purpose::STANDARD.encode(sha256(buf))
 }

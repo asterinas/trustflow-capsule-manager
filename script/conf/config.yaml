@@ -19,9 +19,15 @@ log_config:
   log_level: info      # log level: info/debug/warn/error
   enable_console_logger: true   # Whether the log can be printed in the terminal
 
+tls_config:
+  enable_tls: false                # enable tls
+  server_cert_path: "/host/resources/cert/server.crt"   # path for the Server Certificate
+  server_cert_key_path: "/host/resources/cert/server.key"  # path for the Server Key
+  client_ca_cert_path: "/host/resources/client_ca"   # directory for the Client CA Certificate
+
+storage_config:
+  storage_backend: "inmemory"
+
 scheme: "RSA"                   # Asymmetric key generation method, SM2/RSA
-storage_backend: "inmemory"     # backend storage, inmemory/remote
-server_cert_path: "/host/resources/cert/server.crt"   # path for the Server Certificate
-server_cert_key_path: "/host/resources/cert/server.key"  # path for the Server Key
-client_ca_cert_path: "/host/resources/client_ca"   # directory for the Client CA Certificate
-enable_tls: true                # enable tls
+
+enable_inject_cm_key: false

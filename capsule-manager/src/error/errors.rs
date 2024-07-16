@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sea_orm::{DbErr, RuntimeErr};
 use std::fmt;
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use thiserror;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ErrorCode {
     #[error("Unknown error")]
     Unknown,
@@ -51,6 +52,9 @@ pub enum ErrorCode {
 
     #[error("Already existed")]
     AlreadyExists,
+
+    #[error("Data Integrity Violated")]
+    DataIntegrityViolation,
 }
 
 #[repr(u32)]
@@ -87,6 +91,35 @@ pub fn map_error_to_i32(err: &ErrorCode) -> i32 {
         ErrorCode::InvalidArgument => StatusT::InvalidArgument as i32,
         ErrorCode::UnsupportedErr => StatusT::Unimplemented as i32,
         _ => StatusT::Internal as i32,
+    }
+}
+
+impl From<DbErr> for Error {
+    fn from(error: DbErr) -> Self {
+        // Convert sea-orm error to our own error type.
+        let code = match &error {
+            DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(error))) => {
+                match error.code() {
+                    Some(code) => {
+                        let mut ret_code = ErrorCode::InternalErr;
+                        // We check the error code thrown by the database (MySQL in this case),
+                        // `23000` means `ER_DUP_KEY`: we have a duplicate key in the table.
+                        if code == "23000" {
+                            ret_code = ErrorCode::AlreadyExists;
+                        }
+                        ret_code
+                    }
+                    None => ErrorCode::InternalErr,
+                }
+            }
+            _ => ErrorCode::InternalErr,
+        };
+
+        Error {
+            code,
+            details: Some(Box::new(error.to_string())),
+            location: None,
+        }
     }
 }
 
@@ -168,6 +201,8 @@ impl fmt::Display for ErrorLocation {
     }
 }
 
+unsafe impl Send for Error {}
+
 #[derive(Debug)]
 pub struct Error {
     code: ErrorCode,
@@ -188,6 +223,12 @@ impl fmt::Display for Error {
     }
 }
 
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+}
+
 impl Error {
     pub fn new(code: ErrorCode, details: String, location: Option<ErrorLocation>) -> Error {
         Error {
@@ -199,6 +240,10 @@ impl Error {
 
     pub fn errcode(&self) -> i32 {
         map_error_to_i32(&self.code)
+    }
+
+    pub fn code(&self) -> &ErrorCode {
+        &self.code
     }
 }
 

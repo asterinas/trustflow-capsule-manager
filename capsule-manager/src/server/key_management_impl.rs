@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::constant::{TEE_PLATFORM_SGX, TEE_PLATFORM_TDX};
 use super::CapsuleManagerImpl;
-use crate::server::constant::SEPARATOR;
-use capsule_manager::core::model;
-use capsule_manager::core::model::policy;
-use capsule_manager::core::model::request::{Environment, TeeIdentity, TeeInfo, TeePlatform};
-use capsule_manager::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
-use capsule_manager::utils::jwt::jwa::Secret;
-use capsule_manager::utils::tool::{
+use crate::common::constants::{HASH_SEPARATOR, TEE_PLATFORM_SGX, TEE_PLATFORM_TDX};
+use crate::core::model;
+use crate::core::model::policy;
+use crate::core::model::request::{Environment, TeeIdentity, TeeInfo, TeePlatform};
+use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
+use crate::utils::jwt::jwa::Secret;
+use crate::utils::tool::{
     get_public_key_from_cert_chain, sha256, vec_str_to_vec_u8, verify_cert_chain,
 };
-use capsule_manager::utils::type_convert::from;
-use capsule_manager::{cm_assert, errno, proto};
+use crate::utils::type_convert::from;
+use crate::{cm_assert, errno, proto};
 use hex::encode_upper;
 use prost::Message;
 use sdc_apis::secretflowapis::v2::sdc::capsule_manager::{
@@ -135,7 +134,7 @@ impl CapsuleManagerImpl {
                 request_content.cert.as_bytes(),
                 resource_request.encode_to_vec().as_ref(),
             ]
-            .join(SEPARATOR.as_bytes());
+            .join(HASH_SEPARATOR.as_bytes());
 
             let attributes = ra_verify(&report_json_str, &report_data_raw)?;
 
@@ -406,6 +405,7 @@ impl CapsuleManagerImpl {
             )?;
             if first {
                 policy = policy_right;
+                policy.clear_rule_id();
                 first = false;
             } else {
                 policy = policy.merge(&policy_right);

@@ -12,36 +12,99 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod constant;
 mod key_management_impl;
 mod policy_management_impl;
 mod ra_impl;
 
-use self::constant::RSA_BIT_LEN;
+use async_trait::async_trait;
+
+use crate::common::constants;
+use crate::core::policy_enforcer::PolicyEnforcer;
+use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
+use crate::storage::in_memory_storage::InMemoryStorage;
+use crate::storage::storage_engine::StorageEngine;
+use crate::utils::jwt::jwa::{ContentEncryptionAlgorithm, KeyManagementAlgorithm, Secret};
+use crate::utils::jwt::jwe::{Jwe, RegisteredHeader};
 use crate::utils::jwt::{jwe, jws};
-use capsule_manager::core::policy_enforcer::PolicyEnforcer;
-use capsule_manager::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
-use capsule_manager::storage::in_memory_storage::InMemoryStorage;
-use capsule_manager::storage::storage_engine::StorageEngine;
-use capsule_manager::utils::jwt::jwa::{
-    ContentEncryptionAlgorithm, KeyManagementAlgorithm, Secret,
-};
-use capsule_manager::utils::jwt::jwe::{Jwe, RegisteredHeader};
-use capsule_manager::utils::tool::gen_party_id;
-use capsule_manager::utils::type_convert::from;
-use capsule_manager::{cm_assert, errno, return_errno};
+use crate::utils::tool::gen_party_id;
+use crate::utils::type_convert::from;
+use crate::{cm_assert, errno, return_errno};
 use log::{debug, info};
 use openssl::rsa::Rsa;
-use sdc_apis::secretflowapis::v2::sdc::capsule_manager::*;
+use sdc_apis::secretflowapis::v2::sdc::capsule_manager;
 use sdc_apis::secretflowapis::v2::sdc::{
     UnifiedAttestationGenerationParams, UnifiedAttestationReportParams,
 };
 use sdc_apis::secretflowapis::v2::{Code, Status};
-use tonic::{Request, Response};
+
+#[async_trait]
+pub trait CapsuleManagerService {
+    async fn get_ra_cert(
+        &self,
+        request: &capsule_manager::GetRaCertRequest,
+    ) -> AuthResult<capsule_manager::GetRaCertResponse>;
+
+    async fn create_data_keys(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn get_data_keys(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn delete_data_key(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn get_export_data_key(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    // warning: the rpc interface only take effect for party cert,
+    // doesn't take effect for certs derived from the party cert
+    async fn register_cert(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn create_data_policy(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn list_data_policy(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn add_data_rule(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn delete_data_policy(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn delete_data_rule(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+
+    async fn create_result_data_key(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse>;
+}
 
 fn get_request<T: prost::Message + std::default::Default + for<'a> serde::Deserialize<'a>>(
     private_key_pem: &[u8],
-    encrypt_request: &EncryptedRequest,
+    encrypt_request: &capsule_manager::EncryptedRequest,
 ) -> AuthResult<(T, Option<jws::Jws>)> {
     let content = encrypt_request
         .message
@@ -64,7 +127,7 @@ fn get_request<T: prost::Message + std::default::Default + for<'a> serde::Deseri
 fn encrypt_response<T: prost::Message + std::default::Default + for<'a> serde::Serialize>(
     secret: Secret,
     response: &T,
-) -> AuthResult<EncryptedResponse> {
+) -> AuthResult<capsule_manager::EncryptedResponse> {
     let header = RegisteredHeader {
         cek_algorithm: KeyManagementAlgorithm::RSA_OAEP,
         enc_algorithm: ContentEncryptionAlgorithm::A128GCM,
@@ -74,7 +137,7 @@ fn encrypt_response<T: prost::Message + std::default::Default + for<'a> serde::S
         Jwe::create_from_encrypting(&header, &secret, serde_json::to_vec(&response)?.as_ref())?;
     // serialization
     let json_content = serde_json::to_string(&jwe)?;
-    Ok(EncryptedResponse {
+    Ok(capsule_manager::EncryptedResponse {
         status: Some(Status {
             code: Code::Ok as i32,
             message: "success".to_owned(),
@@ -115,7 +178,7 @@ fn verify_signature(
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CapsuleManagerImpl {
     // root certificate
     kek_cert: Vec<u8>,
@@ -135,14 +198,14 @@ impl Default for CapsuleManagerImpl {
     fn default() -> Self {
         // get public-private key pair
         let (cert_pem, private_key) = {
-            let rsa = Rsa::generate(RSA_BIT_LEN).expect("create rsa key pair failed");
+            let rsa = Rsa::generate(constants::RSA_BIT_LEN).expect("create rsa key pair failed");
 
             let key_pair = openssl::pkey::PKey::from_rsa(rsa).unwrap();
 
             let cert = crate::utils::crypto::create_cert(
                 &key_pair,
-                constant::X509NAME.iter(),
-                constant::CERT_DAYS,
+                constants::X509NAME.iter(),
+                constants::CERT_DAYS,
             )
             .unwrap();
 
@@ -209,23 +272,9 @@ impl CapsuleManagerImpl {
     pub fn new(
         storage_engine: std::sync::Arc<dyn StorageEngine>,
         mode: &str,
+        cert_pem: &[u8],
+        private_key: &[u8],
     ) -> Result<Self, Error> {
-        // get public-private key pair
-        let (cert_pem, private_key) = {
-            let rsa = Rsa::generate(RSA_BIT_LEN)?;
-
-            let key_pair = openssl::pkey::PKey::from_rsa(rsa)?;
-
-            let cert = crate::utils::crypto::create_cert(
-                &key_pair,
-                constant::X509NAME.iter(),
-                constant::CERT_DAYS,
-            )?;
-
-            let cert_pem = cert.to_pem()?;
-            let prikey_pem = key_pair.private_key_to_pem_pkcs8()?;
-            (cert_pem, prikey_pem)
-        };
         cm_assert!(
             mode == "simulation" || mode == "production",
             "mode {} is not supported",
@@ -236,11 +285,11 @@ impl CapsuleManagerImpl {
             launch_check()?;
         }
 
-        debug!(target: "capsule_manager_log", "cert:\n {:?}", String::from_utf8(cert_pem.clone()));
+        debug!(target: "capsule_manager_log", "cert:\n {:?}", String::from_utf8(cert_pem.to_owned()));
 
         Ok(Self {
-            kek_cert: cert_pem,
-            kek_pri: private_key,
+            kek_cert: cert_pem.to_owned(),
+            kek_pri: private_key.to_owned(),
             storage_engine: storage_engine.clone(),
             mode: mode.to_owned(),
             policy_enforcer: PolicyEnforcer::new(),
@@ -248,274 +297,91 @@ impl CapsuleManagerImpl {
     }
 }
 
-// interface implementation for GRPC service
-#[tonic::async_trait]
-impl capsule_manager_server::CapsuleManager for CapsuleManagerImpl {
+#[async_trait]
+impl CapsuleManagerService for CapsuleManagerImpl {
     async fn get_ra_cert(
         &self,
-        request: Request<GetRaCertRequest>,
-    ) -> Result<Response<GetRaCertResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.get_ra_cert_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => GetRaCertResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                attestation_report: None,
-                cert: "".to_owned(),
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|get_ra_cert|{:?}|{:?}", status.code, status.message);
-        }
-
-        Ok(Response::new(reply))
-    }
-
-    async fn delete_data_key(
-        &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.delete_data_key_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|delete_data_key|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::GetRaCertRequest,
+    ) -> AuthResult<capsule_manager::GetRaCertResponse> {
+        self.get_ra_cert_impl(request).await
     }
 
     async fn create_data_keys(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.create_data_keys_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|create_data_keys|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.create_data_keys_impl(request).await
+    }
+
+    async fn get_data_keys(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.get_data_keys_impl(request).await
+    }
+
+    async fn delete_data_key(
+        &self,
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.delete_data_key_impl(request).await
     }
 
     async fn get_export_data_key(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.get_export_data_key_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|get_export_data_key|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.get_export_data_key_impl(request).await
     }
 
     // warning: the rpc interface only take effect for party cert,
     // doesn't take effect for certs derived from the party cert
     async fn register_cert(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.register_cert_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|register_cert|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
-    }
-
-    async fn get_data_keys(
-        &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.get_data_keys_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|get_data_keys|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.register_cert_impl(request).await
     }
 
     async fn create_data_policy(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.create_data_policy_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|create_data_policy|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.create_data_policy_impl(request).await
     }
 
     async fn list_data_policy(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.list_data_policy_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|list_data_policy|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.list_data_policy_impl(request).await
     }
 
     async fn add_data_rule(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.add_data_rule_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|add_data_rule|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.add_data_rule_impl(request).await
     }
 
     async fn delete_data_policy(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.delete_data_policy_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|delete_data_policy|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.delete_data_policy(request).await
     }
 
     async fn delete_data_rule(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.delete_data_rule_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|delete_data_rule|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.delete_data_rule_impl(request).await
     }
 
     async fn create_result_data_key(
         &self,
-        request: Request<EncryptedRequest>,
-    ) -> Result<Response<EncryptedResponse>, tonic::Status> {
-        let request_body = request.into_inner();
-        let reply = match self.create_result_data_key_impl(&request_body).await {
-            Ok(response) => response,
-            Err(e) => EncryptedResponse {
-                status: Some(Status {
-                    code: e.errcode(),
-                    message: e.to_string(),
-                    details: vec![],
-                }),
-                message: None,
-            },
-        };
-        if let Some(ref status) = reply.status {
-            log::info!(target: "monitor", "|create_result_data_key|{:?}|{:?}", status.code, status.message);
-        }
-        Ok(Response::new(reply))
+        request: &capsule_manager::EncryptedRequest,
+    ) -> AuthResult<capsule_manager::EncryptedResponse> {
+        self.create_result_data_key_impl(&request).await
     }
 }

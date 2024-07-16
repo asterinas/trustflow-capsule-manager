@@ -43,7 +43,9 @@ pub fn init_log(dir: &str, level: &str, enable_console_logger: bool) {
 
     // init stdout appender
     let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("[{d}] [{t}] [{l}] {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new(
+            "[{d}] [{l}] [stdout] [{f}:{M}:{L}] {m}{n}",
+        )))
         .build();
 
     // init monitor_log appender
@@ -57,7 +59,9 @@ pub fn init_log(dir: &str, level: &str, enable_console_logger: bool) {
     let compound_policy =
         CompoundPolicy::new(Box::new(size_trigger), Box::new(fixed_window_roller));
     let monitor_log = RollingFileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("[{d}] [{t}] [{l}] {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new(
+            "[{d}] [{l}] [capsulemanager] [{f}:{M}:{L}] {m}{n}",
+        )))
         .build(
             dir_path.join(MONITOR_LOG_RELATIVE_PATH).to_str().unwrap(),
             Box::new(compound_policy),
@@ -75,7 +79,9 @@ pub fn init_log(dir: &str, level: &str, enable_console_logger: bool) {
     let compound_policy =
         CompoundPolicy::new(Box::new(size_trigger), Box::new(fixed_window_roller));
     let capsule_manager_log = RollingFileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("[{d}] [{t}] [{l}] {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new(
+            "[{d}] [{l}] [{f}:{L}] {m}{n}",
+        )))
         .build(
             dir_path
                 .join(CAPSULE_MANAGER_LOG_RELATIVE_PATH)

@@ -22,6 +22,7 @@ ENV PROTOC /root/.local/bin/protoc
 
 COPY Cargo.toml ./
 COPY capsule-manager ./capsule-manager
+COPY bin ./bin
 COPY script ./script
 
 RUN ./script/build.sh -p $PLATFORM

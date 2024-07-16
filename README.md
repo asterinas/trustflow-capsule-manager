@@ -28,7 +28,7 @@ At present, there are four official images: sim/sgx/tdx/csv, which correspond to
     # enable TLS(often skip in simulation mode)
     # if you want to use the mTLS, you can refer to the mTLS part
     # run service
-    ./capsule_manager --enable-tls false
+    ./capsule_manager --tls_config.enable_tls false
     ```
 
 ### SGX Mode
@@ -72,9 +72,9 @@ At present, there are four official images: sim/sgx/tdx/csv, which correspond to
 
 4. Run Capsule Manager
 
-    By default, `enable-tls` is **true**. You can configure mTLS by referring to Mutual TLS：
+    By default, `--tls_config.enable_tls` is **true**. You can configure mTLS by referring to Mutual TLS：
     ```bash
-    occlum run /bin/capsule_manager --enable-tls false
+    occlum run /bin/capsule_manager --tls_config.enable_tls false
     ```
 
 ### TDX Mode
@@ -98,9 +98,9 @@ At present, there are four official images: sim/sgx/tdx/csv, which correspond to
     Set real `pccs_url` and set `use_secure_cert` to **false** in /etc/sgx_default_qcnl.conf.
 
 3. Run Capsule Manager
-    By default, `enable-tls` is **true**. You can configure mTLS by referring to Mutual TLS：
+    By default, `--tls_config.enable_tls` is **true**. You can configure mTLS by referring to Mutual TLS：
     ```bash
-    ./capsule_manager --enable-tls false
+    ./capsule_manager --tls_config.enable_tls false
     ```
 
 ### CSV Mode
@@ -120,9 +120,9 @@ At present, there are four official images: sim/sgx/tdx/csv, which correspond to
     ```
 2. Run Capsule Manager
 
-    By default, `enable-tls` is **true**. You can configure mTLS by referring to Mutual TLS：
+    By default, `tls_config.enable_tls` is **true**. You can configure mTLS by referring to Mutual TLS：
     ```bash
-    ./capsule_manager --enable-tls false
+    ./capsule_manager --tls_config.enable_tls false
     ```
 
 ## Mutual TLS
@@ -157,7 +157,7 @@ Remote Attestation is not enabled for this mode
     ```
 2. Run
    ```bash
-   ./target/release/capsule_manager --enable-tls false
+   ./target/release/capsule_manager --tls_config.enable_tls false
    ```
 ### SGX Mode
 1. Build
@@ -178,7 +178,7 @@ Remote Attestation is not enabled for this mode
 
 3. Run
    ```bash
-   ./target/release/capsule_manager --enable-tls false
+   ./target/release/capsule_manager --tls_config.enable_tls false
    ```
 ### CSV Mode
 1. Build
@@ -187,7 +187,7 @@ Remote Attestation is not enabled for this mode
     ```
 2. Run
    ```bash
-   ./target/release/capsule_manager --enable-tls false
+   ./target/release/capsule_manager --tls_config.enable_tls false
    ```
 
 ## Contributing

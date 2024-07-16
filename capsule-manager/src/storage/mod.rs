@@ -13,4 +13,5 @@
 // limitations under the License.
 
 pub mod in_memory_storage;
+pub mod sql_storage;
 pub mod storage_engine;

@@ -13,12 +13,11 @@
 // limitations under the License.
 
 use super::CapsuleManagerImpl;
-use crate::server::constant::SEPARATOR;
-use ::capsule_manager::errno;
-use ::capsule_manager::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
-use ::capsule_manager::utils::tool::sha256;
+use crate::common::constants::HASH_SEPARATOR;
+use crate::errno;
+use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
+use crate::utils::tool::sha256;
 use hex::encode_upper;
-use log::debug;
 use sdc_apis::secretflowapis::v2::sdc::capsule_manager::{GetRaCertRequest, GetRaCertResponse};
 use sdc_apis::secretflowapis::v2::sdc::{
     UnifiedAttestationGenerationParams, UnifiedAttestationReport, UnifiedAttestationReportParams,
@@ -34,7 +33,8 @@ impl CapsuleManagerImpl {
         let attestation_report: Option<UnifiedAttestationReport> = match self.mode.as_str() {
             // get RA report
             "production" => {
-                let data = [&self.kek_cert, request.nonce.as_bytes()].join(SEPARATOR.as_bytes());
+                let data =
+                    [&self.kek_cert, request.nonce.as_bytes()].join(HASH_SEPARATOR.as_bytes());
 
                 // fill report params
                 let report_params = UnifiedAttestationGenerationParams {

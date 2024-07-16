@@ -23,7 +23,7 @@ use openssl::pkey::{PKey, Public};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-pub const SEPARATOR: &str = ".";
+const SEPARATOR: &str = ".";
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// Registered JWS header fields.

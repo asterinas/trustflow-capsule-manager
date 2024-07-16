@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use std::collections::HashSet;
 use std::iter::Enumerate;
 
@@ -142,6 +141,12 @@ pub struct Policy {
 }
 
 impl Policy {
+    pub fn clear_rule_id(&mut self) {
+        for rule in self.rules.iter_mut() {
+            rule.rule_id = String::from("");
+        }
+    }
+
     pub fn get_data_uuid<'a>(&'a self) -> &String {
         &self.data_uuid
     }

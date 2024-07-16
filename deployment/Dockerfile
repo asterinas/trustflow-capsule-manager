@@ -22,6 +22,7 @@ ENV PROTOC /root/.local/bin/protoc
 
 COPY Cargo.toml ./
 COPY capsule-manager ./capsule-manager
+COPY bin ./bin
 COPY script ./script
 
 RUN ./script/build.sh -p $PLATFORM
@@ -30,7 +31,7 @@ FROM secretflow/trustedflow-release-ubuntu22.04:latest
 
 COPY --from=builder /lib/libverification.so /home/admin/lib/libverification.so
 COPY --from=builder /lib/libgeneration.so /home/admin/lib/libgeneration.so
-COPY --from=builder /home/admin/dev/target/release/capsule_manager /home/admin/capsule_manager
+COPY --from=builder /home/admin/dev/target/release/grpc-as /home/admin/capsule_manager
 COPY --from=builder /home/admin/dev/script/conf/config.yaml /home/admin/config.yaml
 
 COPY deployment/entrypoint.sh /home/admin/entrypoint.sh
