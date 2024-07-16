@@ -38,29 +38,29 @@ pub struct Config {
     #[clap(flatten)]
     pub log_config: LogConfig,
 
+    /// tls config
+    #[clap(flatten)]
+    pub tls_config: TlsConfig,
+
+    /// storage config
+    #[clap(flatten)]
+    pub storage_config: StorageConfig,
+
     /// key scheme: SM2, RSA
     #[clap(long)]
     pub scheme: Option<String>,
 
-    // the storage backend
+    // enable inject cm private key
     #[clap(long)]
-    pub storage_backend: Option<String>,
+    pub enable_inject_cm_key: Option<bool>,
 
-    // server cert path
+    // capsule manager private key path
     #[clap(long)]
-    pub server_cert_path: Option<String>,
+    pub cm_private_key_path: Option<String>,
 
-    // server cert key path
+    // capsule manager certificate path
     #[clap(long)]
-    pub server_cert_key_path: Option<String>,
-
-    // root ca cert path
-    #[clap(long)]
-    pub client_ca_cert_path: Option<String>,
-
-    // Tls
-    #[clap(long)]
-    pub enable_tls: Option<bool>,
+    pub cm_cert_path: Option<String>,
 
     // the mod of capsule manager
     pub mode: Option<String>,
@@ -79,6 +79,42 @@ pub struct LogConfig {
     /// enable console logger
     #[clap(long = "log_config.enable_console_logger")]
     pub enable_console_logger: Option<bool>,
+}
+
+#[derive(Parser, Deserialize, Merge, Debug)]
+pub struct TlsConfig {
+    // Tls
+    #[clap(long = "tls_config.enable_tls")]
+    pub enable_tls: Option<bool>,
+
+    // tls cert path
+    #[clap(long = "tls_config.server_cert_path")]
+    pub server_cert_path: Option<String>,
+
+    // server cert key path
+    #[clap(long = "tls_config.server_private_key_path")]
+    pub server_private_key_path: Option<String>,
+
+    // root ca cert path
+    #[clap(long = "tls_config.client_ca_cert_path")]
+    pub client_ca_cert_path: Option<String>,
+}
+
+#[derive(Parser, Deserialize, Merge, Debug)]
+pub struct StorageConfig {
+    // storage backend
+    //    inmemory
+    //    mysql
+    #[clap(long = "storage_config.storage_backend")]
+    pub storage_backend: Option<String>,
+
+    // data base url
+    #[clap(long = "storage_config.db_url")]
+    pub db_url: Option<String>,
+
+    // data base password
+    #[clap(long = "storage_config.password")]
+    pub password: Option<String>,
 }
 
 impl Config {
@@ -111,22 +147,23 @@ impl Config {
                 log_level: Some(String::from("info")),
                 enable_console_logger: Some(true),
             },
+            tls_config: TlsConfig {
+                enable_tls: Some(true),
+                server_cert_path: Some(String::from("/host/resources/cert/server.crt")),
+                server_private_key_path: Some(String::from("/host/resources/cert/server.key")),
+                client_ca_cert_path: Some(String::from("/host/resources/client_ca/")),
+            },
             scheme: Some(String::from("RSA")),
-            storage_backend: Some(String::from("inmemory")),
-            server_cert_path: Some(String::from("/host/resources/cert/server.crt")),
-            server_cert_key_path: Some(String::from("/host/resources/cert/server.key")),
-            client_ca_cert_path: Some(String::from("/host/resources/client_ca/")),
-            enable_tls: Some(true),
             mode: Some(String::from("production")),
+            cm_private_key_path: Some(String::from("/host/resources/cert/cm.key")),
+            cm_cert_path: Some(String::from("/host/resources/cert/cm.crt")),
+            enable_inject_cm_key: Some(false),
+            storage_config: StorageConfig {
+                storage_backend: Some("inmemory".to_owned()),
+                db_url: None,
+                password: None,
+            },
         });
-
-        // set mode according to cfg
-        if cfg!(feature = "production") {
-            config.mode = Some("production".to_owned());
-        } else {
-            config.mode = Some("simulation".to_owned());
-        }
-        println!("config {:#?}", config);
         config
     }
 }

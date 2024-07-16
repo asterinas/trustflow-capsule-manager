@@ -15,6 +15,7 @@
 #
 
 LD_LIBRARY_PATH=/home/admin/lib && \
-  /home/admin/capsule_manager --port 8888 \
-  --enable-tls false --log_config.log_dir log \
-  --log_config.enable_console_logger true
+  /home/admin/capsule_manager \
+  --tls_config.enable_tls false  --log_config.log_dir log \
+  --log_config.enable_console_logger true \
+  --config_path config.yaml $@

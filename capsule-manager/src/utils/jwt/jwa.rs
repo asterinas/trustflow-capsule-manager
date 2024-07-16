@@ -352,7 +352,22 @@ impl SignatureAlgorithm {
         use self::SignatureAlgorithm::*;
 
         match self {
-            HS256 | HS384 | HS512 => Err(errno!(ErrorCode::UnsupportedErr, "unsupport hmac now")),
+            HS256 => {
+                let key = match *secret {
+                    Secret::Bytes(ref key) => PKey::hmac(key.as_slice())?,
+                    _ => Err(errno!(
+                        ErrorCode::InvalidArgument,
+                        "Invalid secret type. A PrivateKey is required"
+                    ))?,
+                };
+
+                let mut signer =
+                    openssl::sign::Signer::new(openssl::hash::MessageDigest::sha256(), &key)?;
+                signer.update(data)?;
+                let signature = signer.sign_to_vec()?;
+                Ok(signature)
+            }
+            HS384 | HS512 => Err(errno!(ErrorCode::UnsupportedErr, "unsupport hmac now")),
             RS256 | RS384 | RS512 | PS256 | PS384 | PS512 => Self::sign_rsa(data, secret, self),
             ES256 | ES384 | ES512 => Err(errno!(ErrorCode::UnsupportedErr, "unsupport ecdsa now")),
             _ => Err(errno!(
@@ -373,7 +388,25 @@ impl SignatureAlgorithm {
         use self::SignatureAlgorithm::*;
 
         match self {
-            HS256 | HS384 | HS512 => Err(errno!(ErrorCode::UnsupportedErr, "unsupport hmac now")),
+            HS256 => {
+                let key = match *key {
+                    Secret::Bytes(ref key) => PKey::hmac(key.as_slice())?,
+                    _ => Err(errno!(
+                        ErrorCode::InvalidArgument,
+                        "Invalid secret type. A Bytes is required"
+                    ))?,
+                };
+                let mut signer =
+                    openssl::sign::Signer::new(openssl::hash::MessageDigest::sha256(), &key)?;
+                signer.update(data)?;
+                let signature = signer.sign_to_vec()?;
+
+                if signature != expected_signature {
+                    return Err(errno!(ErrorCode::CryptoErr, "Signature verify failed."));
+                }
+                Ok(())
+            }
+            HS384 | HS512 => Err(errno!(ErrorCode::UnsupportedErr, "unsupport hmac now")),
             RS256 | RS384 | RS512 | PS256 | PS384 | PS512 => {
                 Self::verify_rsa(expected_signature, data, key, self)
             }

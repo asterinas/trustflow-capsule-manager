@@ -99,9 +99,9 @@ for repo in "${DOCKER_REGS[@]}"; do
     docker push $repo/$IMAGE_TAG
     if [[ LATEST -eq 1 ]]; then
         echo -e "Tag ${GREEN}${LATEST_TAG}${NO_COLOR} ..."
-        docker tag ${IMAGE_TAG} $repo/$IMAGE_TAG
+        docker tag ${IMAGE_TAG} $repo/$LATEST_TAG
         echo -e "Push ${GREEN}${LATEST_TAG}${NO_COLOR} ..."
-        docker push $repo/$IMAGE_TAG
+        docker push $repo/$LATEST_TAG
     fi
   fi
 done

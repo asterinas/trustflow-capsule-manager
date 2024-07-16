@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use crate::core::model;
 use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
 use crate::utils::jwt::jwa::{Secret, SignatureAlgorithm};
@@ -25,8 +24,6 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize, Serializer};
-
-pub const SEPARATOR: &str = ".";
 
 #[derive(Deserialize, Serialize, PartialEq, Clone, Debug)]
 pub enum TeeIdentity {

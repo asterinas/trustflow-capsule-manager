@@ -39,7 +39,7 @@ echo -e "${GREEN} ===== Initailize occlum workspace end ===== ${NC}"
 
 pushd $occlum_instance_dir
 mkdir -p image/bin/
-cp $workspace_dir/target/release/capsule_manager image/bin/
+cp $workspace_dir/target/release/grpc-as image/bin/capsule_manager
 
 # Copy glibc so to image.
 mkdir -p image/opt/occlum/glibc/lib/

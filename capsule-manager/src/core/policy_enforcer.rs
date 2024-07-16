@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use crate::core::model::policy::{self, Rule};
 use crate::core::model::request;
 use crate::errno;
@@ -21,15 +20,15 @@ use crate::error::errors::{Error, ErrorCode, ErrorLocation};
 use log::warn;
 use rhai::{Engine, Scope};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PolicyEnforcer {
-    engine: Engine,
+    engine: std::sync::Arc<Engine>,
 }
 
 impl PolicyEnforcer {
     pub fn new() -> PolicyEnforcer {
         PolicyEnforcer {
-            engine: Engine::new_raw(),
+            engine: std::sync::Arc::new(Engine::new_raw()),
         }
     }
 }

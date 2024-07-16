@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use super::CapsuleManagerImpl;
-use capsule_manager::errno;
-use capsule_manager::error::errors::{Error, ErrorCode, ErrorLocation};
-use capsule_manager::utils::jwt::jwa::Secret;
+use crate::errno;
+use crate::error::errors::{Error, ErrorCode, ErrorLocation};
+use crate::utils::jwt::jwa::Secret;
 use sdc_apis::secretflowapis::v2::sdc::capsule_manager::*;
 use sdc_apis::secretflowapis::v2::{Code, Status};
 
