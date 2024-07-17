@@ -2,5 +2,6 @@
 
 members = [
     "bin/grpc-as",
+    "bin/http-as",
     "capsule-manager"
 ]
