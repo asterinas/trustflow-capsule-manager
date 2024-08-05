@@ -162,11 +162,7 @@ workflows:
       not: << pipeline.parameters.GHA_Action >>
     jobs:
       - cm_ut
-      - cm_sdk_ut:
-          filters:
-              paths:
-                only:
-                  - "capsule-manager-sdk/*"
+      - cm_sdk_ut
   cm-docker-image-publish-workflow:
     when:
       and:
