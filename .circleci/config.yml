@@ -56,7 +56,7 @@ jobs:
           name: "build and test"
           command: |
             set -ex
-            ./script/install_attestation_lib.sh -p sim
+            bash ./script/install_attestation_lib.sh -p sim
             export PATH="/root/.cargo/bin:$PATH"
             export PATH="/root/.local/bin:$PATH"
             cargo build
