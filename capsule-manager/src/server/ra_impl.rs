@@ -52,7 +52,7 @@ impl CapsuleManagerImpl {
                     }),
                 };
 
-                let report_json = trustedflow_attestation_rs::generate_attestation_report(
+                let report_json = trustflow_attestation_rs::generate_attestation_report(
                     serde_json::to_string(&report_params)
                         .map_err(|e| {
                             errno!(

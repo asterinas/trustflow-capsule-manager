@@ -445,7 +445,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tonic",
- "trustedflow-attestation-rs",
+ "trustflow-attestation-rs",
  "uuid",
 ]
 
@@ -922,7 +922,7 @@ checksum = "40ecd4077b5ae9fd2e9e169b102c6c330d0605168eb0e8bf79952b256dbefffd"
 
 [[package]]
 name = "grpc-as"
-version = "0.4.0"
+version = "0.1.0"
 dependencies = [
  "capsule_manager",
  "log",
@@ -1057,6 +1057,19 @@ dependencies = [
  "bytes",
  "fnv",
  "itoa",
+]
+
+[[package]]
+name = "http-as"
+version = "0.1.0"
+dependencies = [
+ "axum 0.7.5",
+ "capsule_manager",
+ "log",
+ "openssl",
+ "openssl-sys",
+ "sdc_apis",
+ "tokio",
 ]
 
 [[package]]
@@ -3374,21 +3387,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "trustedflow-attestation-rs"
-version = "0.1.2-dev240313"
+name = "trustflow-attestation-rs"
+version = "0.3.1-dev20240726"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05e57409d294b2d06f01cf7cf599f75401a29069098395265001099b4850ba9a"
+checksum = "ee72c217eb6b1a3ec173bd064e68816a79c3e5c3d60cb46c1952db351bdf7108"
 dependencies = [
  "sdc_apis",
  "serde_json",
- "trustedflow-attestation-sys",
+ "trustflow-attestation-sys",
 ]
 
 [[package]]
-name = "trustedflow-attestation-sys"
-version = "0.1.1-dev240313"
+name = "trustflow-attestation-sys"
+version = "0.3.1-dev20240726"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12422e5133fe869c71ae87dcbf661837a21c273ed032ce1a08bd6153dbe82112"
+checksum = "d6eeaf66ac6c3e73d2ec6bf06f1b96fef6ebb8cef03a2cac7939b3a1f54a411d"
 
 [[package]]
 name = "try-lock"

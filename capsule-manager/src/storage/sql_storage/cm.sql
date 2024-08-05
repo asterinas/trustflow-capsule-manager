@@ -33,3 +33,5 @@ CREATE TABLE `rules` (
   PRIMARY KEY (`rule_id`),
   FOREIGN KEY (`resource_uri`) REFERENCES data_meta(`resource_uri`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+

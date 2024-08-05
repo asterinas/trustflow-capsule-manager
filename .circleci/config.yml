@@ -41,11 +41,11 @@ parameters:
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
-  linux_ut:
+  cm_ut:
     # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
     docker:
-      - image: secretflow/trustedflow-dev-ubuntu22.04:latest
+      - image: secretflow/trustflow-dev-ubuntu22.04:latest
     resource_class: 2xlarge+
     shell: /bin/bash --login -eo pipefail
     # Add steps to the job
@@ -62,7 +62,7 @@ jobs:
             cargo build
             cargo test
 
-  docker_image_publish:
+  cm_docker_image_publish:
     docker:
       - image: cimg/deploy:2023.06.1
     resource_class: 2xlarge+
@@ -110,7 +110,49 @@ jobs:
                 exit 1
                 ;;
             esac
-
+  
+  cm_sdk_ut:
+    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
+    docker:
+      - image: secretflow/trustflow-dev-ubuntu22.04:latest
+    resource_class: large
+    # Add steps to the job
+    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+    shell: /bin/bash --login -eo pipefail
+    steps:
+      - checkout
+      - run:
+          name: "unit test"
+          command: |
+            source /root/miniconda3/etc/profile.d/conda.sh
+            conda create -n test python=3.10.14 -y
+            conda activate test
+            cd capsule-manager-sdk/python
+            export PYTHONPATH=.:$PYTHONPATH
+            pip install -r dev-requirements.txt
+            mkdir test-results
+            pytest --junitxml=test-results/junit-report.xml
+      - store_test_results:
+          path: capsule-manager-sdk/python/test-results
+  
+  cm_sdk_publish:
+    docker:
+      - image: secretflow/trustflow-dev-ubuntu22.04:latest
+    resource_class: large
+    shell: /bin/bash --login -eo pipefail
+    steps:
+      - checkout
+      - run:
+          name: "build package and publish"
+          command: |
+            source /root/miniconda3/etc/profile.d/conda.sh
+            conda create -n build python=3.10.14 -y
+            conda activate build
+            python3 -m pip install twine auditwheel patchelf
+            cd capsule-manager-sdk/python
+            python3 setup.py bdist_wheel && twine check dist/*
+            python3 -m twine upload -r pypi -u __token__ -p ${PYPI_TWINE_TOKEN} dist/*.whl
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
@@ -119,12 +161,22 @@ workflows:
     when:
       not: << pipeline.parameters.GHA_Action >>
     jobs:
-      - linux_ut
-  docker-image-publish-workflow:
+      - cm_ut
+      - cm_sdk_ut:
+          filters:
+              paths:
+                only:
+                  - "capsule-manager-sdk/*"
+  cm-docker-image-publish-workflow:
     when:
       and:
-        - equal: ["docker_image_publish", << pipeline.parameters.GHA_Action >>]
+        - equal: ["cm_docker_image_publish", << pipeline.parameters.GHA_Action >>]
         - exits: << pipeline.parameters.GHA_Platform >>
         - exits: << pipeline.parameters.GHA_Version >>
     jobs:
-      - docker_image_publish
+      - cm_docker_image_publish
+  cm-sdk-publish-workflow:
+    when:
+      - equal: ["cm_sdk_publish", << pipeline.parameters.GHA_Action >>]
+    jobs:
+      - cm_sdk_publish

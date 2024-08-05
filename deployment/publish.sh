@@ -38,7 +38,7 @@ show_help() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd $SCRIPT_DIR/..
 
-DOCKER_REGS="secretflow"
+DOCKER_REG="secretflow"
 
 # 解析短选项的getopts循环
 while getopts "p:v:e:luh" opt; do
@@ -105,5 +105,3 @@ for repo in "${DOCKER_REGS[@]}"; do
     fi
   fi
 done
-
-

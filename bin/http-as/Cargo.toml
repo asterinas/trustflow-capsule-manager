@@ -1,0 +1,16 @@
+[package]
+name = "http-as"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+production = []
+
+[dependencies]
+axum = "0.7.5"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+capsule_manager = {path = "../../capsule-manager"}
+sdc_apis = "0.2.1-dev20240222"
+openssl-sys = "0.9"
+openssl =  { version = "0.10"}
+log = "0.4"

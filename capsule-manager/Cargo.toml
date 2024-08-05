@@ -39,14 +39,13 @@ hex = "0.4.3"
 base32 = "0.4.0"
 lazy_static = "1.4.0"
 sdc_apis = "0.2.1-dev20240222"
-trustedflow-attestation-rs = { version = "0.1.2-dev240313"}
+trustflow-attestation-rs = { version = "0.3.1-dev20240726"}
 sea-orm = { version = "^0.12.0", features = [ "sqlx-mysql", "runtime-tokio-native-tls", "macros" ] }
 sqlx = { version = "0.7", features = [ "runtime-tokio" ] }
 eyre = "0.6.11"
 sqlx-core = "0.7.4"
 axum = "0.7.5"
 async-trait = "0.1.80"
-
 [dependencies.uuid]
 version = "1.8.0"
 features = [

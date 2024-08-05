@@ -1,6 +1,7 @@
 [workspace]
 
-members = [
-    "bin/grpc-as",
+members = [ 
+    "bin/grpc-as", 
+    "bin/http-as",
     "capsule-manager"
 ]
