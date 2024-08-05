@@ -245,7 +245,7 @@ fn launch_check() -> AuthResult<()> {
         }),
     };
 
-    trustedflow_attestation_rs::generate_attestation_report(
+    trustflow_attestation_rs::generate_attestation_report(
         serde_json::to_string(&report_params)
             .map_err(|e| {
                 errno!(

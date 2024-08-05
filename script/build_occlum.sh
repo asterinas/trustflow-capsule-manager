@@ -39,7 +39,8 @@ echo -e "${GREEN} ===== Initailize occlum workspace end ===== ${NC}"
 
 pushd $occlum_instance_dir
 mkdir -p image/bin/
-cp $workspace_dir/target/release/grpc-as image/bin/capsule_manager
+cp $workspace_dir/target/release/http-as image/bin/capsule_manager_http
+cp $workspace_dir/target/release/grpc-as image/bin/capsule_manager_grpc
 
 # Copy glibc so to image.
 mkdir -p image/opt/occlum/glibc/lib/
@@ -56,7 +57,7 @@ cp -a /opt/occlum/glibc/lib/libnss_dns.so* \
 cp -an /usr/lib/x86_64-linux-gnu/lib*so* .
 popd
 
-# trustedflow attestation lib
+# trustflow attestation lib
 mkdir -p image/usr/local/lib
 cp /lib/libgeneration.so image/usr/local/lib
 cp /lib/libverification.so image/usr/local/lib

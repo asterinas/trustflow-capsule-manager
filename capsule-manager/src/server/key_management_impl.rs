@@ -45,7 +45,7 @@ fn ra_verify(
     // fill policy
     let mut verified_attributes = UnifiedAttestationAttributes::default();
 
-    let attributes = trustedflow_attestation_rs::parse_attributes_from_report(report_json_str)
+    let attributes = trustflow_attestation_rs::parse_attributes_from_report(report_json_str)
         .map_err(|e| {
             errno!(
                 ErrorCode::InvalidArgument,
@@ -76,7 +76,7 @@ fn ra_verify(
             e
         )
     })?;
-    trustedflow_attestation_rs::attestation_report_verify(
+    trustflow_attestation_rs::attestation_report_verify(
         report_json_str,
         policy_json_str.as_str(),
     )
@@ -88,7 +88,7 @@ fn ra_verify(
         )
     })?;
     Ok(
-        trustedflow_attestation_rs::parse_attributes_from_report(report_json_str).map_err(|e| {
+        trustflow_attestation_rs::parse_attributes_from_report(report_json_str).map_err(|e| {
             errno!(
                 ErrorCode::InvalidArgument,
                 "parse report attributes failed: {:?}.",

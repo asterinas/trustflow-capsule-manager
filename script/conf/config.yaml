@@ -31,3 +31,4 @@ storage_config:
 scheme: "RSA"                   # Asymmetric key generation method, SM2/RSA
 
 enable_inject_cm_key: false
+

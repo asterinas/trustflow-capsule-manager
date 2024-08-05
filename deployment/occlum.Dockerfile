@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM secretflow/trustedflow-dev-occlum-ubuntu22.04:latest as builder
+FROM secretflow/trustflow-dev-occlum-ubuntu22.04:latest as builder
 
 ARG PLATFORM
 
@@ -27,7 +27,7 @@ COPY script ./script
 
 RUN ./script/build.sh -p $PLATFORM
 
-FROM secretflow/trustedflow-release-occlum-ubuntu22.04:latest
+FROM secretflow/trustflow-release-occlum-ubuntu22.04:latest
 
 # for occlum build, we need to install following pkgs
 RUN apt update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y \

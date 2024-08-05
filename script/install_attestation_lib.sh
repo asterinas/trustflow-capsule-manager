@@ -52,40 +52,40 @@ NC="\033[0m"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd $SCRIPT_DIR
-rm -rf trustedflow
-git clone https://github.com/secretflow/trustedflow.git
-cd trustedflow
+rm -rf trustflow
+git clone https://github.com/asterinas/trustflow.git
+cd trustflow
 
-echo "build trustedflow attestation"
+echo "build trustflow attestation"
 case "$PLATFORM" in
   sim)
-    bazel build -c opt //trustedflow/...
+    bazel build -c opt //trustflow/...
     ;;
   sgx)
-    bazel build -c opt --define tee_type=sgx2 //trustedflow/...
+    bazel build -c opt --define tee_type=sgx2 //trustflow/...
     ;;
   tdx)
-    bazel build -c opt --define tee_type=tdx //trustedflow/...
+    bazel build -c opt --define tee_type=tdx //trustflow/...
     ;;
   csv)
-    bazel build -c opt --define tee_type=csv //trustedflow/...
+    bazel build -c opt --define tee_type=csv //trustflow/...
     ;;
   *)
     echo -e "PLATFORM does not match any of options(sim/sgx/tdx/csv)"
     exit 1
     ;;
 esac
-echo "build trustedflow attestation successfully"
+echo "build trustflow attestation successfully"
 
 if [ -z "$SAVE_PATH" ]; then
   SAVE_PATH="/lib"
 fi
 
 
-cp bazel-bin/trustedflow/attestation/generation/wrapper/libgeneration.so /lib
+cp bazel-bin/trustflow/attestation/generation/wrapper/libgeneration.so /lib
 echo "copy libgeneration.so to $SAVE_PATH successfully"
 
-cp bazel-bin/trustedflow/attestation/verification/wrapper/libverification.so /lib
+cp bazel-bin/trustflow/attestation/verification/wrapper/libverification.so /lib
 echo "copy libverication.so to $SAVE_PATH successfully"
 
-cd .. && rm -rf trustedflow
+cd .. && rm -rf trustflow

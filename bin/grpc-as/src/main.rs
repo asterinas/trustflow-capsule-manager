@@ -122,6 +122,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut client_ca_pem = fs::read_to_string(&path).unwrap().as_bytes().to_vec();
             client_pem_vec.append(&mut client_ca_pem);
         }
+            "read client ca pem {:?}",
+            std::str::from_utf8(&client_pem_vec)?
+        );
 
         let client_ca_cert = tonic::transport::Certificate::from_pem(client_pem_vec);
         let tls_config = tonic::transport::ServerTlsConfig::new()

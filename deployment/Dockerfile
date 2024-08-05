@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM secretflow/trustedflow-dev-ubuntu22.04:latest as builder
+FROM secretflow/trustflow-dev-ubuntu22.04:latest as builder
 
 ARG PLATFORM
 
@@ -27,11 +27,12 @@ COPY script ./script
 
 RUN ./script/build.sh -p $PLATFORM
 
-FROM secretflow/trustedflow-release-ubuntu22.04:latest
+FROM secretflow/trustflow-release-ubuntu22.04:latest
 
 COPY --from=builder /lib/libverification.so /home/admin/lib/libverification.so
 COPY --from=builder /lib/libgeneration.so /home/admin/lib/libgeneration.so
-COPY --from=builder /home/admin/dev/target/release/grpc-as /home/admin/capsule_manager
+COPY --from=builder /home/admin/dev/target/release/http-as /home/admin/capsule_manager_http
+COPY --from=builder /home/admin/dev/target/release/grpc-as /home/admin/capsule_manager_grpc
 COPY --from=builder /home/admin/dev/script/conf/config.yaml /home/admin/config.yaml
 
 COPY deployment/entrypoint.sh /home/admin/entrypoint.sh
