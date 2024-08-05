@@ -149,10 +149,10 @@ jobs:
             source /root/miniconda3/etc/profile.d/conda.sh
             conda create -n build python=3.10.14 -y
             conda activate build
-            python3 -m pip install twine auditwheel patchelf
+            pip install twine
             cd capsule-manager-sdk/python
             python3 setup.py bdist_wheel && twine check dist/*
-            python3 -m twine upload -r pypi -u __token__ -p ${PYPI_TWINE_TOKEN} dist/*.whl
+            twine upload -u __token__ -p ${PYPI_TWINE_TOKEN} dist/*
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
