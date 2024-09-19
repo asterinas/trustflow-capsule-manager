@@ -22,7 +22,7 @@ log_config:
 tls_config:
   enable_tls: false                # enable tls
   server_cert_path: "/host/resources/cert/server.crt"   # path for the Server Certificate
-  server_cert_key_path: "/host/resources/cert/server.key"  # path for the Server Key
+  server_private_key_path: "/host/resources/cert/server.key"  # path for the Server Key
   client_ca_cert_path: "/host/resources/client_ca"   # directory for the Client CA Certificate
 
 storage_config:
