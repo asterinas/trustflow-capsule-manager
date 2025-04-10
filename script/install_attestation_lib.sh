@@ -55,6 +55,7 @@ cd $SCRIPT_DIR
 rm -rf trustflow
 git clone https://github.com/asterinas/trustflow.git
 cd trustflow
+git checkout 0.5.0.dev241227
 
 echo "build trustflow attestation"
 case "$PLATFORM" in
