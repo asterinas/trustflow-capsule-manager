@@ -44,6 +44,11 @@ fn ra_verify(
     // get report data
     let hex_report_data = encode_upper(sha256(&report_data_raw));
 
+    log::info!(
+        "Before Ra Verify.\n Expected user data hex: {:?}",
+        &hex_report_data
+    );
+
     // fill policy
     let mut verified_attributes = UnifiedAttestationAttributes::default();
 
@@ -136,6 +141,8 @@ impl CapsuleManagerImpl {
             .join(HASH_SEPARATOR.as_bytes());
 
             let attributes = ra_verify(&report_json_str, &report_data_raw)?;
+
+            log::info!("Ra Verify Success.\n Attributes: {:?}", &attributes);
 
             let (tee_identity, tee_platform) = match attributes.str_tee_platform.as_str() {
                 "SGX_DCAP" => (
