@@ -27,6 +27,7 @@ use entities::{
     rules,
 };
 use sea_orm::sea_query::Expr;
+use sea_orm::sea_query::OnConflict;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter,
     TransactionTrait,
@@ -367,6 +368,16 @@ impl StorageEngine for SqlStoreEngine {
                 aad: { ActiveValue::Set(base64_encode(&result.additional_data)) },
                 ..Default::default()
             })
+            .on_conflict(
+                OnConflict::column(data_key::Column::ResourceUri)
+                    .update_columns([
+                        data_key::Column::EncryptedDataKey,
+                        data_key::Column::Iv,
+                        data_key::Column::Tag,
+                        data_key::Column::Aad,
+                    ])
+                    .to_owned(),
+            )
             .exec(&txn)
             .await
             .map_err(|e| Error::from(e))?;
@@ -450,6 +461,16 @@ impl StorageEngine for SqlStoreEngine {
             aad: { ActiveValue::Set(base64_encode(&result.additional_data)) },
             ..Default::default()
         })
+        .on_conflict(
+                OnConflict::column(data_key::Column::ResourceUri)
+                    .update_columns([
+                        data_key::Column::EncryptedDataKey,
+                        data_key::Column::Iv,
+                        data_key::Column::Tag,
+                        data_key::Column::Aad,
+                    ])
+                    .to_owned(),
+            )
         .exec(&txn)
         .await
         .map_err(|e| Error::from(e))?;
