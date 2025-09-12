@@ -285,9 +285,29 @@ impl StorageEngine for SqlStoreEngine {
         }
 
         Rules::insert_many(active_rules)
+            .on_conflict(
+                OnConflict::column(rules::Column::RuleId)
+                    .update_columns([
+                        rules::Column::ResourceUri,
+                        rules::Column::Scope,
+                        rules::Column::GranteePartyIds,
+                        rules::Column::Columns,
+                        rules::Column::OpConstrants,
+                        rules::Column::GlobalConstrants,
+                        rules::Column::Signature,
+                        rules::Column::GmtModified,
+                    ])
+                    .to_owned(),
+            )
             .exec(&txn)
             .await
-            .map_err(|e| errno!(ErrorCode::InternalErr, "Insert rules failed: {:?}", e))?;
+            .map_err(|e| {
+                errno!(
+                    ErrorCode::InternalErr,
+                    "Insert or update rules failed: {:?}",
+                    e
+                )
+            })?;
 
         txn.commit()
             .await
@@ -462,15 +482,15 @@ impl StorageEngine for SqlStoreEngine {
             ..Default::default()
         })
         .on_conflict(
-                OnConflict::column(data_key::Column::ResourceUri)
-                    .update_columns([
-                        data_key::Column::EncryptedDataKey,
-                        data_key::Column::Iv,
-                        data_key::Column::Tag,
-                        data_key::Column::Aad,
-                    ])
-                    .to_owned(),
-            )
+            OnConflict::column(data_key::Column::ResourceUri)
+                .update_columns([
+                    data_key::Column::EncryptedDataKey,
+                    data_key::Column::Iv,
+                    data_key::Column::Tag,
+                    data_key::Column::Aad,
+                ])
+                .to_owned(),
+        )
         .exec(&txn)
         .await
         .map_err(|e| Error::from(e))?;
