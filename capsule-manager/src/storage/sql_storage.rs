@@ -29,7 +29,7 @@ use entities::{
 use sea_orm::sea_query::Expr;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect,
     TransactionTrait,
 };
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
@@ -224,6 +224,7 @@ impl StorageEngine for SqlStoreEngine {
             .map_err(|e| errno!(ErrorCode::InternalErr, "Init transcation failed: {:?}", e))?;
 
         match DataMeta::find_by_id(&policy.data_uuid)
+            .lock_exclusive()
             .one(&txn)
             .await
             .map_err(|e| errno!(ErrorCode::InternalErr, "Find meta data failed: {:?}", e))?
@@ -331,6 +332,7 @@ impl StorageEngine for SqlStoreEngine {
             // First, create metadata if it does not exist,
             // and then register the corresponding data key in the same transaction.
             match DataMeta::find_by_id(&data_key.resource_uri)
+                .lock_exclusive()
                 .one(&txn)
                 .await
                 .map_err(|e| errno!(ErrorCode::InternalErr, "Find data key failed: {:?}", e))?
@@ -426,6 +428,7 @@ impl StorageEngine for SqlStoreEngine {
         // First, create metadata if it does not exist,
         // and then register the corresponding data key in the same transaction.
         match DataMeta::find_by_id(resource_uri)
+            .lock_exclusive()
             .one(&txn)
             .await
             .map_err(|e| errno!(ErrorCode::InternalErr, "Find meta data failed: {:?}", e))?
