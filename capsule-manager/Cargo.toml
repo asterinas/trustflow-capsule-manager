@@ -38,6 +38,9 @@ rhai = { version = "1.5.0", features = [
   "unchecked",
 ] }
 hex = "0.4.3"
+sm4 = "0.5.1"
+cbc = { version = "0.1.2", features = ["alloc"] }
+ecb = { version = "0.1.2", features = ["alloc"] }
 base32 = "0.4.0"
 lazy_static = "1.4.0"
 sdc_apis = "0.3.0-dev20241104"
