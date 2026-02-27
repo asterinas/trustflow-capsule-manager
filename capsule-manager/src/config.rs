@@ -115,6 +115,18 @@ pub struct StorageConfig {
     // data base password
     #[clap(long = "storage_config.password")]
     pub password: Option<String>,
+
+    // ICBC TECC password service URL
+    #[clap(long = "storage_config.password_url")]
+    pub password_url: Option<String>,
+
+    // database name (for ICBC TECC password service)
+    #[clap(long = "storage_config.db_name")]
+    pub db_name: Option<String>,
+
+    // database user name (for ICBC TECC password service)
+    #[clap(long = "storage_config.user_name")]
+    pub user_name: Option<String>,
 }
 
 impl Config {
@@ -162,6 +174,9 @@ impl Config {
                 storage_backend: Some("inmemory".to_owned()),
                 db_url: None,
                 password: None,
+                password_url: None,
+                db_name: None,
+                user_name: None,
             },
         });
         config

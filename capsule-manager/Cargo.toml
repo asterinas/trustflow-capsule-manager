@@ -51,6 +51,7 @@ eyre = "0.6.11"
 sqlx-core = "0.7.4"
 axum = "0.7.5"
 async-trait = "0.1.80"
+reqwest = { version = "0.11", features = ["json"] }
 [dependencies.uuid]
 version = "1.8.0"
 features = [

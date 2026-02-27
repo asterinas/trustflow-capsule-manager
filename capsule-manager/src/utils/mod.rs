@@ -16,6 +16,7 @@ pub mod crypto;
 pub mod json_merger;
 pub mod jwt;
 pub mod log;
+pub mod password_fetcher;
 pub mod scheme;
 pub mod serde_custom;
 pub mod tool;
