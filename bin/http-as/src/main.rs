@@ -70,26 +70,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "mysql" => {
             // use SHA256(SHA256(private key)) as seal key
             let seal_key = tool::sha256(tool::sha256(cm_private_key.as_slice()).as_slice());
-            // If password_url is configured, fetch password from ICBC TECC service;
-            // otherwise fall back to static password config.
-            let db_password = if let Some(ref password_url) = cfg.storage_config.password_url {
-                let db_name = cfg.storage_config.db_name.as_ref().expect("miss db_name");
-                let user_name = cfg
-                    .storage_config
-                    .user_name
-                    .as_ref()
-                    .expect("miss user_name");
+            // If password is configured, use it directly;
+            // otherwise fetch from ICBC TECC password service.
+            let db_password = if cfg.storage_config.password.is_some() {
+                cfg.storage_config.password.clone()
+            } else {
                 Some(
                     capsule_manager::utils::password_fetcher::fetch_db_password(
-                        password_url,
-                        db_name,
-                        user_name,
+                        &cfg.storage_config.password_service,
                     )
                     .await
                     .expect("fetch db password from ICBC TECC failed"),
                 )
-            } else {
-                cfg.storage_config.password.clone()
             };
             std::sync::Arc::new(
                 SqlStoreEngineBuilder::new()

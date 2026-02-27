@@ -1,26 +1,60 @@
+use crate::config::PasswordServiceConfig;
 use crate::error::errors::{AuthResult, Error, ErrorCode, ErrorLocation};
 use crate::utils::crypto;
 use serde_json::json;
 use std::env;
 
 /// Fetch the database password from ICBC TECC service via HTTP POST,
-/// then decrypt the SM4-CBC encrypted password.
-pub async fn fetch_db_password(
-    password_url: &str,
-    db_name: &str,
-    user_name: &str,
-) -> AuthResult<String> {
+/// then decrypt the salted SM4-CBC encrypted password.
+pub async fn fetch_db_password(config: &PasswordServiceConfig) -> AuthResult<String> {
+    let url = config.url.as_ref().ok_or_else(|| {
+        crate::errno!(
+            ErrorCode::InternalErr,
+            "password_service.url not configured"
+        )
+    })?;
+    let db_name = config.db_name.as_ref().ok_or_else(|| {
+        crate::errno!(
+            ErrorCode::InternalErr,
+            "password_service.db_name not configured"
+        )
+    })?;
+    let user_name = config.user_name.as_ref().ok_or_else(|| {
+        crate::errno!(
+            ErrorCode::InternalErr,
+            "password_service.user_name not configured"
+        )
+    })?;
+    let mode = config.mode.as_ref().ok_or_else(|| {
+        crate::errno!(
+            ErrorCode::InternalErr,
+            "password_service.mode not configured"
+        )
+    })?;
+    let service = config.service.as_ref().ok_or_else(|| {
+        crate::errno!(
+            ErrorCode::InternalErr,
+            "password_service.service not configured"
+        )
+    })?;
+    let app_name = config.app_name.as_ref().ok_or_else(|| {
+        crate::errno!(
+            ErrorCode::InternalErr,
+            "password_service.app_name not configured"
+        )
+    })?;
+
     let token = env::var("ICBC_TECC_TOKEN")
         .map_err(|_| crate::errno!(ErrorCode::InternalErr, "env ICBC_TECC_TOKEN not set"))?;
-    let sm4_key_b64 = env::var("SM4_KEY")
-        .map_err(|_| crate::errno!(ErrorCode::InternalErr, "env SM4_KEY not set"))?;
+    let sm4_key_b64 = env::var("ICBC_SM4_KEY_B64")
+        .map_err(|_| crate::errno!(ErrorCode::InternalErr, "env ICBC_SM4_KEY_B64 not set"))?;
 
     let sm4_key = crate::utils::tool::base64_decode(&sm4_key_b64)?;
 
     let body = json!({
-        "mode": "online",
-        "service": "dbSafeService",
-        "appName": "F-TECC",
+        "mode": mode,
+        "service": service,
+        "appName": app_name,
         "param": {
             "dbName": db_name,
             "userName": user_name,
@@ -29,7 +63,7 @@ pub async fn fetch_db_password(
 
     let client = reqwest::Client::new();
     let resp = client
-        .post(password_url)
+        .post(url.as_str())
         .header("token", &token)
         .json(&body)
         .send()
@@ -58,20 +92,14 @@ pub async fn fetch_db_password(
         )
     })?;
 
-    let encrypted_hex = resp_json["data"]["keyId"].as_str().ok_or_else(|| {
+    let encrypted_b64 = resp_json["data"]["keyId"].as_str().ok_or_else(|| {
         crate::errno!(
             ErrorCode::InternalErr,
             "ICBC TECC response missing data.keyId field"
         )
     })?;
 
-    let ciphertext = hex::decode(encrypted_hex).map_err(|e| {
-        crate::errno!(
-            ErrorCode::CryptoErr,
-            "invalid password hex from ICBC TECC: {}",
-            e
-        )
-    })?;
+    let ciphertext = crate::utils::tool::base64_decode(encrypted_b64)?;
 
     let plaintext_bytes = crypto::sm4_cbc_salt_decrypt(&sm4_key, &ciphertext)?;
 
@@ -96,11 +124,7 @@ mod tests {
         let plaintext = b"my_secret_db_password";
 
         let ciphertext = crypto::sm4_cbc_salt_encrypt(&key, plaintext).unwrap();
-        let encrypted_hex = hex::encode(&ciphertext);
-
-        // Simulate what fetch_db_password does after getting the hex string
-        let decoded = hex::decode(&encrypted_hex).unwrap();
-        let decrypted = crypto::sm4_cbc_salt_decrypt(&key, &decoded).unwrap();
+        let decrypted = crypto::sm4_cbc_salt_decrypt(&key, &ciphertext).unwrap();
         assert_eq!(decrypted, plaintext);
         assert_eq!(
             String::from_utf8(decrypted).unwrap(),

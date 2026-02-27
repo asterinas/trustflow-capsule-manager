@@ -116,17 +116,36 @@ pub struct StorageConfig {
     #[clap(long = "storage_config.password")]
     pub password: Option<String>,
 
-    // ICBC TECC password service URL
-    #[clap(long = "storage_config.password_url")]
-    pub password_url: Option<String>,
+    // ICBC TECC password service config
+    #[clap(flatten)]
+    pub password_service: PasswordServiceConfig,
+}
 
-    // database name (for ICBC TECC password service)
-    #[clap(long = "storage_config.db_name")]
+#[derive(Parser, Deserialize, Merge, Debug, Clone)]
+pub struct PasswordServiceConfig {
+    // ICBC TECC password service URL
+    #[clap(long = "storage_config.password_service.url")]
+    pub url: Option<String>,
+
+    // database name
+    #[clap(long = "storage_config.password_service.db_name")]
     pub db_name: Option<String>,
 
-    // database user name (for ICBC TECC password service)
-    #[clap(long = "storage_config.user_name")]
+    // database user name
+    #[clap(long = "storage_config.password_service.user_name")]
     pub user_name: Option<String>,
+
+    // request mode (e.g. "online")
+    #[clap(long = "storage_config.password_service.mode")]
+    pub mode: Option<String>,
+
+    // service name (e.g. "dbSafeService")
+    #[clap(long = "storage_config.password_service.service")]
+    pub service: Option<String>,
+
+    // app name (e.g. "F-TECC")
+    #[clap(long = "storage_config.password_service.app_name")]
+    pub app_name: Option<String>,
 }
 
 impl Config {
@@ -174,9 +193,14 @@ impl Config {
                 storage_backend: Some("inmemory".to_owned()),
                 db_url: None,
                 password: None,
-                password_url: None,
-                db_name: None,
-                user_name: None,
+                password_service: PasswordServiceConfig {
+                    url: None,
+                    db_name: None,
+                    user_name: None,
+                    mode: None,
+                    service: None,
+                    app_name: None,
+                },
             },
         });
         config
