@@ -24,7 +24,7 @@ use rand::prelude::StdRng;
 use rand::SeedableRng;
 use rsa::pkcs1::EncodeRsaPrivateKey;
 
-use sm4::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyInit, KeyIvInit};
+use sm4::cipher::{block_padding::NoPadding, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 
 pub fn create_cert(
     key_pair: &openssl::pkey::PKey<openssl::pkey::Private>,
@@ -95,155 +95,174 @@ pub fn gen_rsa_key_pair_from_seed(seed: [u8; 32]) -> AuthResult<(String, String)
     Ok((pkcs8_pri_key, x509_cert_pem))
 }
 
-type Sm4EcbEnc = ecb::Encryptor<sm4::Sm4>;
-type Sm4EcbDec = ecb::Decryptor<sm4::Sm4>;
 type Sm4CbcEnc = cbc::Encryptor<sm4::Sm4>;
 type Sm4CbcDec = cbc::Decryptor<sm4::Sm4>;
 
-/// SM4-ECB encrypt with PKCS7 padding.
-/// key: 16 bytes.
-pub fn sm4_ecb_encrypt(key: &[u8], plaintext: &[u8]) -> AuthResult<Vec<u8>> {
-    let encryptor =
-        Sm4EcbEnc::new_from_slice(key).map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))?;
-    Ok(encryptor.encrypt_padded_vec_mut::<Pkcs7>(plaintext))
+const SM4_BLOCK_SIZE: usize = 16;
+
+/// PKCS7 pad `data` to a multiple of `block_size`.
+fn pkcs7_pad(data: &[u8], block_size: usize) -> Vec<u8> {
+    let pad_len = block_size - (data.len() % block_size);
+    let mut out = Vec::with_capacity(data.len() + pad_len);
+    out.extend_from_slice(data);
+    out.resize(data.len() + pad_len, pad_len as u8);
+    out
 }
 
-/// SM4-ECB decrypt with PKCS7 unpadding.
-/// key: 16 bytes.
-pub fn sm4_ecb_decrypt(key: &[u8], ciphertext: &[u8]) -> AuthResult<Vec<u8>> {
-    let decryptor =
-        Sm4EcbDec::new_from_slice(key).map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))?;
-    decryptor
-        .decrypt_padded_vec_mut::<Pkcs7>(ciphertext)
-        .map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))
+/// Remove PKCS7 padding.
+fn pkcs7_unpad(data: &[u8]) -> AuthResult<&[u8]> {
+    if data.is_empty() {
+        return Err(crate::errno!(
+            ErrorCode::CryptoErr,
+            "empty data for pkcs7 unpad"
+        ));
+    }
+    let pad_len = *data.last().unwrap() as usize;
+    if pad_len == 0 || pad_len > SM4_BLOCK_SIZE || pad_len > data.len() {
+        return Err(crate::errno!(ErrorCode::CryptoErr, "invalid pkcs7 padding"));
+    }
+    if !data[data.len() - pad_len..]
+        .iter()
+        .all(|&b| b == pad_len as u8)
+    {
+        return Err(crate::errno!(
+            ErrorCode::CryptoErr,
+            "invalid pkcs7 padding bytes"
+        ));
+    }
+    Ok(&data[..data.len() - pad_len])
 }
 
-/// SM4-CBC encrypt with PKCS7 padding.
-/// key: 16 bytes, iv: 16 bytes.
-pub fn sm4_cbc_encrypt(key: &[u8], iv: &[u8], plaintext: &[u8]) -> AuthResult<Vec<u8>> {
-    let encryptor = Sm4CbcEnc::new_from_slices(key, iv)
+/// Salted SM4-CBC encrypt.
+///
+/// 1. Generate random 16-byte salt and 16-byte iv.
+/// 2. PKCS7-pad (salt || plaintext).
+/// 3. SM4/CBC/NoPadding encrypt.
+/// 4. Return salt || iv || ciphertext.
+pub fn sm4_cbc_salt_encrypt(key: &[u8], plaintext: &[u8]) -> AuthResult<Vec<u8>> {
+    use rand::RngCore;
+    let mut salt = [0u8; SM4_BLOCK_SIZE];
+    let mut iv = [0u8; SM4_BLOCK_SIZE];
+    rand::thread_rng().fill_bytes(&mut salt);
+    rand::thread_rng().fill_bytes(&mut iv);
+
+    // salt || plaintext -> PKCS7 pad
+    let mut salted_plain = Vec::with_capacity(SM4_BLOCK_SIZE + plaintext.len());
+    salted_plain.extend_from_slice(&salt);
+    salted_plain.extend_from_slice(plaintext);
+    let padded = pkcs7_pad(&salted_plain, SM4_BLOCK_SIZE);
+
+    // SM4/CBC/NoPadding encrypt
+    let encryptor = Sm4CbcEnc::new_from_slices(key, &iv)
         .map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))?;
-    Ok(encryptor.encrypt_padded_vec_mut::<Pkcs7>(plaintext))
+    let encrypted = encryptor.encrypt_padded_vec_mut::<NoPadding>(&padded);
+
+    // output: salt || iv || encrypted
+    let mut result = Vec::with_capacity(SM4_BLOCK_SIZE + SM4_BLOCK_SIZE + encrypted.len());
+    result.extend_from_slice(&salt);
+    result.extend_from_slice(&iv);
+    result.extend_from_slice(&encrypted);
+    Ok(result)
 }
 
-/// SM4-CBC decrypt with PKCS7 unpadding.
-/// key: 16 bytes, iv: 16 bytes.
-pub fn sm4_cbc_decrypt(key: &[u8], iv: &[u8], ciphertext: &[u8]) -> AuthResult<Vec<u8>> {
+/// Salted SM4-CBC decrypt.
+///
+/// Input format: salt(16) || iv(16) || ciphertext.
+/// 1. Extract salt, iv, ciphertext.
+/// 2. SM4/CBC/NoPadding decrypt -> salt || plaintext || padding.
+/// 3. Remove salt (first 16 bytes) and PKCS7 padding.
+pub fn sm4_cbc_salt_decrypt(key: &[u8], data: &[u8]) -> AuthResult<Vec<u8>> {
+    if data.len() < SM4_BLOCK_SIZE * 3 {
+        return Err(crate::errno!(
+            ErrorCode::CryptoErr,
+            "salted SM4-CBC ciphertext too short ({})",
+            data.len()
+        ));
+    }
+    let iv = &data[SM4_BLOCK_SIZE..SM4_BLOCK_SIZE * 2];
+    let ciphertext = &data[SM4_BLOCK_SIZE * 2..];
+
+    if ciphertext.len() % SM4_BLOCK_SIZE != 0 {
+        return Err(crate::errno!(
+            ErrorCode::CryptoErr,
+            "salted SM4-CBC ciphertext not block-aligned"
+        ));
+    }
+
+    // SM4/CBC/NoPadding decrypt
     let decryptor = Sm4CbcDec::new_from_slices(key, iv)
         .map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))?;
-    decryptor
-        .decrypt_padded_vec_mut::<Pkcs7>(ciphertext)
-        .map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))
+    let decrypted = decryptor
+        .decrypt_padded_vec_mut::<NoPadding>(ciphertext)
+        .map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))?;
+
+    // decrypted = salt(16) || plaintext || pkcs7_padding
+    // remove PKCS7 padding first, then strip salt
+    let unpadded = pkcs7_unpad(&decrypted)?;
+    if unpadded.len() < SM4_BLOCK_SIZE {
+        return Err(crate::errno!(
+            ErrorCode::CryptoErr,
+            "decrypted data shorter than salt size"
+        ));
+    }
+    Ok(unpadded[SM4_BLOCK_SIZE..].to_vec())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ========== SM4-ECB tests ==========
+    // ========== Salted SM4-CBC tests ==========
 
     #[test]
-    fn test_sm4_ecb_basic() {
+    fn test_sm4_cbc_salt_basic() {
         let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
-        let plaintext = b"hello sm4 ecb!!";
-        let ciphertext = sm4_ecb_encrypt(&key, plaintext).unwrap();
-        let decrypted = sm4_ecb_decrypt(&key, &ciphertext).unwrap();
+        let plaintext = b"hello salted sm4!";
+        let encrypted = sm4_cbc_salt_encrypt(&key, plaintext).unwrap();
+        // output = salt(16) + iv(16) + ciphertext(>=16)
+        assert!(encrypted.len() >= 48);
+        let decrypted = sm4_cbc_salt_decrypt(&key, &encrypted).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
     #[test]
-    fn test_sm4_ecb_block_aligned() {
+    fn test_sm4_cbc_salt_empty_plaintext() {
         let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
-        let plaintext = b"1234567890abcdef"; // exactly 16 bytes
-        let ciphertext = sm4_ecb_encrypt(&key, plaintext).unwrap();
-        assert_eq!(ciphertext.len(), 32); // PKCS7 adds a full block
-        let decrypted = sm4_ecb_decrypt(&key, &ciphertext).unwrap();
-        assert_eq!(decrypted, plaintext);
-    }
-
-    #[test]
-    fn test_sm4_ecb_empty() {
-        let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
-        let ciphertext = sm4_ecb_encrypt(&key, b"").unwrap();
-        assert_eq!(ciphertext.len(), 16);
-        let decrypted = sm4_ecb_decrypt(&key, &ciphertext).unwrap();
+        let encrypted = sm4_cbc_salt_encrypt(&key, b"").unwrap();
+        let decrypted = sm4_cbc_salt_decrypt(&key, &encrypted).unwrap();
         assert!(decrypted.is_empty());
     }
 
     #[test]
-    fn test_sm4_ecb_invalid_key() {
-        assert!(sm4_ecb_encrypt(&[0u8; 15], b"test").is_err());
-        assert!(sm4_ecb_decrypt(&[0u8; 15], &[0u8; 16]).is_err());
-    }
-
-    // ========== SM4-CBC tests ==========
-
-    #[test]
-    fn test_sm4_cbc_basic() {
+    fn test_sm4_cbc_salt_block_aligned() {
         let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
-        let iv = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-        let plaintext = b"hello sm4 cbc mode test!";
-        let ciphertext = sm4_cbc_encrypt(&key, &iv, plaintext).unwrap();
-        let decrypted = sm4_cbc_decrypt(&key, &iv, &ciphertext).unwrap();
+        let plaintext = b"1234567890abcdef"; // 16 bytes
+        let encrypted = sm4_cbc_salt_encrypt(&key, plaintext).unwrap();
+        let decrypted = sm4_cbc_salt_decrypt(&key, &encrypted).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
     #[test]
-    fn test_sm4_cbc_block_aligned() {
+    fn test_sm4_cbc_salt_large_data() {
         let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
-        let iv = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-        let plaintext = b"1234567890abcdef";
-        let ciphertext = sm4_cbc_encrypt(&key, &iv, plaintext).unwrap();
-        assert_eq!(ciphertext.len(), 32);
-        let decrypted = sm4_cbc_decrypt(&key, &iv, &ciphertext).unwrap();
+        let plaintext = vec![0xCDu8; 1024];
+        let encrypted = sm4_cbc_salt_encrypt(&key, &plaintext).unwrap();
+        let decrypted = sm4_cbc_salt_decrypt(&key, &encrypted).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
     #[test]
-    fn test_sm4_cbc_empty() {
+    fn test_sm4_cbc_salt_too_short() {
         let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
-        let iv = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-        let ciphertext = sm4_cbc_encrypt(&key, &iv, b"").unwrap();
-        assert_eq!(ciphertext.len(), 16);
-        let decrypted = sm4_cbc_decrypt(&key, &iv, &ciphertext).unwrap();
-        assert!(decrypted.is_empty());
+        assert!(sm4_cbc_salt_decrypt(&key, &[0u8; 32]).is_err());
     }
 
     #[test]
-    fn test_sm4_cbc_invalid_key() {
-        let iv = [0u8; 16];
-        assert!(sm4_cbc_encrypt(&[0u8; 15], &iv, b"test").is_err());
-        assert!(sm4_cbc_decrypt(&[0u8; 15], &iv, &[0u8; 16]).is_err());
-    }
-
-    #[test]
-    fn test_sm4_cbc_invalid_iv() {
-        let key = [0u8; 16];
-        assert!(sm4_cbc_encrypt(&key, &[0u8; 12], b"test").is_err());
-        assert!(sm4_cbc_decrypt(&key, &[0u8; 12], &[0u8; 16]).is_err());
-    }
-
-    #[test]
-    fn test_sm4_cbc_wrong_key() {
+    fn test_sm4_cbc_salt_wrong_key() {
         let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
         let wrong_key = hex::decode("fedcba98765432100123456789abcdef").unwrap();
-        let iv = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-        let ciphertext = sm4_cbc_encrypt(&key, &iv, b"secret data").unwrap();
-        let result = sm4_cbc_decrypt(&wrong_key, &iv, &ciphertext);
-        // wrong key -> padding error or wrong plaintext
-        match result {
-            Err(_) => {}
-            Ok(d) => assert_ne!(d, b"secret data"),
-        }
-    }
-
-    #[test]
-    fn test_sm4_cbc_large_data() {
-        let key = hex::decode("0123456789abcdeffedcba9876543210").unwrap();
-        let iv = hex::decode("000102030405060708090a0b0c0d0e0f").unwrap();
-        let plaintext = vec![0xABu8; 1024];
-        let ciphertext = sm4_cbc_encrypt(&key, &iv, &plaintext).unwrap();
-        let decrypted = sm4_cbc_decrypt(&key, &iv, &ciphertext).unwrap();
-        assert_eq!(decrypted, plaintext);
+        let encrypted = sm4_cbc_salt_encrypt(&key, b"secret").unwrap();
+        let result = sm4_cbc_salt_decrypt(&wrong_key, &encrypted);
+        assert!(result.is_err() || result.unwrap() != b"secret");
     }
 }
