@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .as_str()
     {
         "inmemory" => std::sync::Arc::new(InMemoryStorage::new()),
-        "mysql" => {
+        "mysql" | "polardb" => {
             // use SHA256(SHA256(private key)) as seal key
             let seal_key = tool::sha256(tool::sha256(cm_private_key.as_slice()).as_slice());
             // If password is configured, use it directly;

@@ -104,7 +104,7 @@ pub struct TlsConfig {
 pub struct StorageConfig {
     // storage backend
     //    inmemory
-    //    mysql
+    //    mysql/polardb
     #[clap(long = "storage_config.storage_backend")]
     pub storage_backend: Option<String>,
 
