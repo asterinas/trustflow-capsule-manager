@@ -98,6 +98,7 @@ pub async fn fetch_db_password(config: &PasswordServiceConfig) -> AuthResult<Str
             "ICBC TECC response missing data.keyId field"
         )
     })?;
+    log::info!("Get encrypted password from ICBC TECC service success.");
 
     let ciphertext = crate::utils::tool::base64_decode(encrypted_b64)?;
 
@@ -110,6 +111,7 @@ pub async fn fetch_db_password(config: &PasswordServiceConfig) -> AuthResult<Str
             e
         )
     })?;
+    log::info!("Decrypted password from ICBC TECC service success.");
 
     Ok(password)
 }
