@@ -152,6 +152,8 @@ pub fn sm4_cbc_salt_encrypt(key: &[u8], plaintext: &[u8]) -> AuthResult<Vec<u8>>
     salted_plain.extend_from_slice(plaintext);
     let padded = pkcs7_pad(&salted_plain, SM4_BLOCK_SIZE);
 
+    // SM4 key must be exactly 16 bytes; truncate if longer.
+    let key = &key[..SM4_BLOCK_SIZE.min(key.len())];
     // SM4/CBC/NoPadding encrypt
     let encryptor = Sm4CbcEnc::new_from_slices(key, &iv)
         .map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))?;
@@ -189,6 +191,8 @@ pub fn sm4_cbc_salt_decrypt(key: &[u8], data: &[u8]) -> AuthResult<Vec<u8>> {
         ));
     }
 
+    // SM4 key must be exactly 16 bytes; truncate if longer.
+    let key = &key[..SM4_BLOCK_SIZE.min(key.len())];
     // SM4/CBC/NoPadding decrypt
     let decryptor = Sm4CbcDec::new_from_slices(key, iv)
         .map_err(|e| crate::errno!(ErrorCode::CryptoErr, "{}", e))?;
