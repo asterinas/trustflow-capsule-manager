@@ -118,10 +118,11 @@ pub struct StorageConfig {
 
     // ICBC TECC password service config
     #[clap(flatten)]
+    #[serde(default)]
     pub password_service: PasswordServiceConfig,
 }
 
-#[derive(Parser, Deserialize, Merge, Debug, Clone)]
+#[derive(Parser, Deserialize, Merge, Debug, Clone, Default)]
 pub struct PasswordServiceConfig {
     // ICBC TECC password service URL
     #[clap(long = "storage_config.password_service.url")]
@@ -193,14 +194,7 @@ impl Config {
                 storage_backend: Some("inmemory".to_owned()),
                 db_url: None,
                 password: None,
-                password_service: PasswordServiceConfig {
-                    url: None,
-                    db_name: None,
-                    user_name: None,
-                    mode: None,
-                    service: None,
-                    app_name: None,
-                },
+                password_service: PasswordServiceConfig::default(),
             },
         });
         config
